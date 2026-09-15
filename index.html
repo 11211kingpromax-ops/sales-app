@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#16332C">
+<title>פנקס מכירות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16332C;
+    --paper:#F4F2EC;
+    --paper-2:#ffffff;
+    --line:#DAD6C9;
+    --accent:#1F7A5C;
+    --accent-dark:#155842;
+    --gold:#C98A2C;
+    --red:#B0473E;
+    --profit:#2B5FA0;
+    --muted:#6B7A73;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:'Rubik',sans-serif;}
+  body{padding-bottom:78px;min-height:100vh;}
+  h1,h2,h3{margin:0;font-weight:700;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  /* Header */
+  .topbar{
+    background:var(--ink);color:var(--paper);
+    padding:22px 20px 18px;
+    display:flex;align-items:baseline;justify-content:space-between;
+  }
+  .topbar h1{font-size:21px;letter-spacing:.2px;}
+  .topbar .date-today{font-size:13px;color:#B9C7C1;}
+
+  main{padding:16px;max-width:520px;margin:0 auto;}
+
+  /* Bottom nav */
+  .tabbar{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--paper-2);border-top:1px solid var(--line);
+    display:flex;justify-content:space-around;
+    padding:8px 4px calc(8px + env(safe-area-inset-bottom));
+    z-index:50;
+  }
+  .tab-btn{
+    background:none;border:none;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;gap:3px;
+    font-size:11.5px;padding:6px 10px;border-radius:10px;flex:1;
+  }
+  .tab-btn svg{width:22px;height:22px;stroke:var(--muted);fill:none;stroke-width:1.8;}
+  .tab-btn.active{color:var(--accent-dark);font-weight:600;}
+  .tab-btn.active svg{stroke:var(--accent-dark);}
+
+  .view{display:none;animation:fadeIn .18s ease;}
+  .view.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  /* Cards */
+  .card{
+    background:var(--paper-2);border:1px solid var(--line);
+    border-radius:14px;padding:16px;margin-bottom:14px;
+  }
+  .card h2{font-size:15px;color:var(--accent-dark);margin-bottom:12px;}
+
+  label{display:block;font-size:12.5px;color:var(--muted);margin:12px 0 5px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text],input[type=number],input[type=date],select{
+    width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
+    background:var(--paper);font-size:15px;color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+
+  .row2{display:flex;gap:10px;}
+  .row2>div{flex:1;}
+
+  .total-preview.two-line{flex-direction:column;gap:6px;}
+  .total-preview .line{display:flex;justify-content:space-between;}
+  .total-preview .line.profit{color:var(--profit);}
+  .total-preview .line.muted{color:var(--muted);font-weight:500;font-size:13px;}
+
+  .btn-primary{
+    width:100%;padding:13px;background:var(--accent);color:#fff;border:none;
+    border-radius:10px;font-size:15px;font-weight:600;margin-top:16px;
+  }
+  .btn-primary:active{background:var(--accent-dark);}
+  .btn-secondary{
+    background:transparent;border:1px solid var(--line);color:var(--ink);
+    padding:9px 14px;border-radius:9px;font-size:13.5px;
+  }
+
+  .total-preview{
+    margin-top:14px;padding:10px 12px;background:#EEF3EF;border-radius:9px;
+    display:flex;justify-content:space-between;font-size:14px;color:var(--accent-dark);font-weight:600;
+  }
+
+  /* Calendar */
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-header .cal-title{font-size:16px;font-weight:700;}
+  .cal-nav-btn{
+    background:var(--paper);border:1px solid var(--line);border-radius:8px;
+    width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    color:var(--ink);font-size:16px;
+  }
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-dow{text-align:center;font-size:11px;color:var(--muted);padding-bottom:4px;}
+  .cal-day{
+    aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:13px;position:relative;
+    background:var(--paper);color:var(--ink);border:1px solid transparent;
+  }
+  .cal-day.empty{background:transparent;}
+  .cal-day.today{border:1.5px solid var(--gold);font-weight:700;}
+  .cal-day.has-sales{background:#E4EFE9;color:var(--accent-dark);font-weight:600;}
+  .cal-day.selected{background:var(--accent);color:#fff;}
+  .cal-day .dot{width:5px;height:5px;border-radius:50%;background:var(--gold);position:absolute;bottom:5px;}
+  .cal-day.selected .dot{background:#fff;}
+
+  .day-panel{margin-top:16px;}
+  .day-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .day-panel-head h3{font-size:15px;}
+  .day-total{font-size:13px;color:var(--muted);}
+
+  .sale-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 4px;border-bottom:1px solid var(--line);gap:10px;
+  }
+  .sale-row:last-child{border-bottom:none;}
+  .sale-main{font-size:14px;}
+  .sale-main b{font-weight:600;}
+  .sale-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .sale-amt{font-size:14px;font-weight:700;color:var(--accent-dark);white-space:nowrap;}
+  .del-btn{
+    background:none;border:none;color:var(--red);font-size:18px;padding:4px 8px;line-height:1;
+  }
+  .empty-state{text-align:center;color:var(--muted);font-size:13.5px;padding:26px 10px;}
+
+  /* Reports */
+  .seg{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+  .seg button{flex:1;padding:10px;background:none;border:none;font-size:13.5px;color:var(--muted);}
+  .seg button.active{background:var(--accent);color:#fff;font-weight:600;}
+
+  .report-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 4px;border-bottom:1px solid var(--line);
+  }
+  .report-item:last-child{border-bottom:none;}
+  .report-name{font-size:14.5px;font-weight:600;}
+  .report-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .report-val{font-size:15px;font-weight:700;color:var(--accent-dark);}
+  .report-qty{font-size:12px;color:var(--muted);}
+
+  .summary-strip{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .summary-box{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
+  .summary-box .num{font-size:18px;font-weight:800;color:var(--accent-dark);}
+  .summary-box.is-profit .num{color:var(--profit);}
+  .summary-box .lbl{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  .report-profit{font-size:12px;color:var(--profit);margin-top:1px;}
+
+  .install-tip{
+    background:#FBF3E3;border:1px solid #EAD9AF;border-radius:12px;padding:12px 14px;
+    font-size:12.5px;color:#7A5A17;margin-bottom:14px;line-height:1.6;
+  }
+  .toast{
+    position:fixed;bottom:92px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:20px;
+    font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:100;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📒 פנקס מכירות</h1>
+  <div class="date-today" id="todayLabel"></div>
+</div>
+
+<main>
+
+  <!-- ADD SALE VIEW -->
+  <section class="view active" id="view-add">
+    <div class="install-tip" id="installTip">
+      💡 להוספת האפליקציה למסך הבית: פתחו בדפדפן כרום, לחצו על תפריט (⋮) ובחרו "הוספה למסך הבית". היא תיפתח כמו אפליקציה רגילה.
+      <div style="margin-top:8px"><button class="btn-secondary" onclick="dismissTip()">הבנתי, אל תראה שוב</button></div>
+    </div>
+
+    <div class="card">
+      <h2>מכירה חדשה</h2>
+      <label>תאריך</label>
+      <input type="date" id="saleDate">
+
+      <label>מוצר</label>
+      <input type="text" id="saleProduct" list="productList" placeholder="לדוגמה: לחם, עוגה, ג׳לי...">
+      <datalist id="productList"></datalist>
+
+      <label>לקוח</label>
+      <input type="text" id="saleCustomer" list="customerList" placeholder="שם הלקוח">
+      <datalist id="customerList"></datalist>
+
+      <div class="row2">
+        <div>
+          <label>כמות</label>
+          <input type="number" id="saleQty" min="0" step="1" placeholder="0" inputmode="numeric">
+        </div>
+        <div>
+          <label>מחיר מכירה ליחידה (₪)</label>
+          <input type="number" id="salePrice" min="0" step="0.1" placeholder="0" inputmode="decimal">
+        </div>
+      </div>
+
+      <label>מחיר קנייה ליחידה (₪) <span style="color:#9AA69F">— אופציונלי, לחישוב רווח</span></label>
+      <input type="number" id="saleCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
+
+      <div class="total-preview two-line">
+        <div class="line"><span>סה״כ מכירה</span><span id="totalPreview">₪0</span></div>
+        <div class="line muted"><span>סה״כ עלות</span><span id="costPreview">₪0</span></div>
+        <div class="line profit"><span>רווח לעסקה</span><span id="profitPreview">₪0</span></div>
+      </div>
+
+      <button class="btn-primary" onclick="addSale()">שמור מכירה</button>
+    </div>
+  </section>
+
+  <!-- CALENDAR VIEW -->
+  <section class="view" id="view-cal">
+    <div class="card">
+      <div class="cal-header">
+        <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+        <div class="cal-title" id="calTitle"></div>
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <div class="card day-panel">
+      <div class="day-panel-head">
+        <h3 id="dayPanelTitle">בחרו יום</h3>
+        <span class="day-total" id="dayPanelTotal"></span>
+      </div>
+      <div id="dayPanelList"></div>
+      <button class="btn-secondary" style="width:100%;margin-top:10px" onclick="goAddForSelectedDay()">➕ הוספת מכירה ליום זה</button>
+    </div>
+  </section>
+
+  <!-- REPORTS VIEW -->
+  <section class="view" id="view-reports">
+    <div class="card">
+      <div class="seg" id="reportSeg">
+        <button data-p="day" class="active">יומי</button>
+        <button data-p="week">שבועי</button>
+        <button data-p="month">חודשי</button>
+      </div>
+      <input type="date" id="reportDate" style="margin-bottom:14px">
+
+      <div class="summary-strip">
+        <div class="summary-box"><div class="num" id="sumRevenue">₪0</div><div class="lbl">סה״כ הכנסה</div></div>
+        <div class="summary-box"><div class="num" id="sumCost">₪0</div><div class="lbl">סה״כ עלות</div></div>
+        <div class="summary-box is-profit"><div class="num" id="sumProfit">₪0</div><div class="lbl">רווח נקי</div></div>
+        <div class="summary-box"><div class="num" id="sumQty">0</div><div class="lbl">יחידות · <span id="sumOrders">0</span> מכירות</div></div>
+      </div>
+
+      <h2>לפי מוצר</h2>
+      <div id="reportByProduct"></div>
+    </div>
+
+    <div class="card">
+      <h2>לפי לקוח</h2>
+      <div id="reportByCustomer"></div>
+    </div>
+  </section>
+
+</main>
+
+<div class="tabbar">
+  <button class="tab-btn active" data-view="add" onclick="switchTab('add')">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+    הוספה
+  </button>
+  <button class="tab-btn" data-view="cal" onclick="switchTab('cal')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    לוח שנה
+  </button>
+  <button class="tab-btn" data-view="reports" onclick="switchTab('reports')">
+    <svg viewBox="0 0 24 24"><path d="M4 20V10M12 20V4M20 20v-7" stroke-linecap="round"/></svg>
+    דוחות
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- Storage ---------- */
+const STORE_KEY = 'sales_ledger_v1';
+function loadSales(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveSales(arr){ localStorage.setItem(STORE_KEY, JSON.stringify(arr)); }
+let sales = loadSales();
+
+/* ---------- Helpers ---------- */
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function fmtMoney(n){ return '₪' + Number(n).toLocaleString('he-IL', {maximumFractionDigits:2}); }
+function fmtDateHe(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('he-IL', {day:'numeric', month:'long', year:'numeric'});
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* week start = Sunday, ISO-ish week key by that Sunday's date */
+function getWeekRange(iso){
+  const d = new Date(iso+'T00:00:00');
+  const day = d.getDay(); // 0=Sunday
+  const start = new Date(d); start.setDate(d.getDate()-day);
+  const end = new Date(start); end.setDate(start.getDate()+6);
+  return {start: start.toISOString().slice(0,10), end: end.toISOString().slice(0,10)};
+}
+
+document.getElementById('todayLabel').textContent = fmtDateHe(todayISO());
+document.getElementById('saleDate').value = todayISO();
+document.getElementById('reportDate').value = todayISO();
+
+if(localStorage.getItem('hideInstallTip')==='1'){
+  document.getElementById('installTip').style.display='none';
+}
+function dismissTip(){
+  localStorage.setItem('hideInstallTip','1');
+  document.getElementById('installTip').style.display='none';
+}
+
+/* ---------- Tabs ---------- */
+function switchTab(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  if(name==='cal') renderCalendar();
+  if(name==='reports') renderReport();
+}
+
+/* ---------- Add sale ---------- */
+function refreshDatalists(){
+  const products = [...new Set(sales.map(s=>s.product))];
+  const customers = [...new Set(sales.map(s=>s.customer))];
+  document.getElementById('productList').innerHTML = products.map(p=>`<option value="${p}">`).join('');
+  document.getElementById('customerList').innerHTML = customers.map(c=>`<option value="${c}">`).join('');
+}
+refreshDatalists();
+
+function updateTotalPreview(){
+  const q = parseFloat(document.getElementById('saleQty').value)||0;
+  const p = parseFloat(document.getElementById('salePrice').value)||0;
+  const c = parseFloat(document.getElementById('saleCost').value)||0;
+  document.getElementById('totalPreview').textContent = fmtMoney(q*p);
+  document.getElementById('costPreview').textContent = fmtMoney(q*c);
+  document.getElementById('profitPreview').textContent = fmtMoney(q*p - q*c);
+}
+document.getElementById('saleQty').addEventListener('input', updateTotalPreview);
+document.getElementById('salePrice').addEventListener('input', updateTotalPreview);
+document.getElementById('saleCost').addEventListener('input', updateTotalPreview);
+
+function addSale(){
+  const date = document.getElementById('saleDate').value || todayISO();
+  const product = document.getElementById('saleProduct').value.trim();
+  const customer = document.getElementById('saleCustomer').value.trim();
+  const qty = parseFloat(document.getElementById('saleQty').value);
+  const price = parseFloat(document.getElementById('salePrice').value);
+  const costRaw = document.getElementById('saleCost').value;
+  const cost = costRaw==='' ? 0 : parseFloat(costRaw);
+
+  if(!product){ toast('נא להזין שם מוצר'); return; }
+  if(!customer){ toast('נא להזין שם לקוח'); return; }
+  if(!qty || qty<=0){ toast('נא להזין כמות תקינה'); return; }
+  if(isNaN(price) || price<0){ toast('נא להזין מחיר תקין'); return; }
+  if(isNaN(cost) || cost<0){ toast('נא להזין מחיר קנייה תקין'); return; }
+
+  sales.push({id:uid(), date, product, customer, qty, price, cost});
+  saveSales(sales);
+  refreshDatalists();
+
+  document.getElementById('saleProduct').value='';
+  document.getElementById('saleCustomer').value='';
+  document.getElementById('saleQty').value='';
+  document.getElementById('salePrice').value='';
+  document.getElementById('saleCost').value='';
+  updateTotalPreview();
+
+  toast('המכירה נשמרה ✓');
+}
+
+/* ---------- Calendar ---------- */
+let calViewDate = new Date();
+let selectedDay = todayISO();
+
+function changeMonth(delta){
+  calViewDate.setMonth(calViewDate.getMonth() - delta); // RTL nav buttons: › goes back visually, keep intuitive
+  renderCalendar();
+}
+
+function salesForDay(iso){ return sales.filter(s=>s.date===iso); }
+
+function renderCalendar(){
+  const y = calViewDate.getFullYear(), m = calViewDate.getMonth();
+  document.getElementById('calTitle').textContent =
+    calViewDate.toLocaleDateString('he-IL', {month:'long', year:'numeric'});
+
+  const first = new Date(y,m,1);
+  const startOffset = first.getDay(); // 0=Sunday
+  const daysInMonth = new Date(y,m+1,0).getDate();
+
+  const dowNames = ['א','ב','ג','ד','ה','ו','ש'];
+  let html = dowNames.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+
+  for(let i=0;i<startOffset;i++) html += `<div class="cal-day empty"></div>`;
+
+  for(let day=1; day<=daysInMonth; day++){
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const daySales = salesForDay(iso);
+    let cls = 'cal-day';
+    if(iso===todayISO()) cls += ' today';
+    if(iso===selectedDay) cls += ' selected';
+    if(daySales.length) cls += ' has-sales';
+    html += `<button class="${cls}" onclick="selectDay('${iso}')">${day}${daySales.length?'<span class="dot"></span>':''}</button>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+  renderDayPanel();
+}
+
+function selectDay(iso){
+  selectedDay = iso;
+  renderCalendar();
+}
+
+function renderDayPanel(){
+  const daySales = salesForDay(selectedDay);
+  document.getElementById('dayPanelTitle').textContent = fmtDateHe(selectedDay);
+  const total = daySales.reduce((a,s)=>a+s.qty*s.price,0);
+  const profit = daySales.reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+  document.getElementById('dayPanelTotal').textContent = daySales.length
+    ? `${fmtMoney(total)} · רווח ${fmtMoney(profit)}` : '';
+
+  if(!daySales.length){
+    document.getElementById('dayPanelList').innerHTML = `<div class="empty-state">אין מכירות ביום זה</div>`;
+    return;
+  }
+  document.getElementById('dayPanelList').innerHTML = daySales.map(s=>{
+    const c = s.cost||0;
+    const lineProfit = s.qty*(s.price-c);
+    return `
+    <div class="sale-row">
+      <div>
+        <div class="sale-main"><b>${s.product}</b> · ${s.customer}</div>
+        <div class="sale-sub">${s.qty} יח׳ × ${fmtMoney(s.price)}${c ? ` (עלות ${fmtMoney(c)})` : ''}</div>
+        ${c ? `<div class="report-profit">רווח: ${fmtMoney(lineProfit)}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span class="sale-amt">${fmtMoney(s.qty*s.price)}</span>
+        <button class="del-btn" onclick="deleteSale('${s.id}')">✕</button>
+      </div>
+    </div>
+  `;}).join('');
+}
+
+function deleteSale(id){
+  sales = sales.filter(s=>s.id!==id);
+  saveSales(sales);
+  renderCalendar();
+  renderReport();
+}
+
+function goAddForSelectedDay(){
+  document.getElementById('saleDate').value = selectedDay;
+  switchTab('add');
+}
+
+/* ---------- Reports ---------- */
+let reportPeriod = 'day';
+document.getElementById('reportSeg').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  reportPeriod = btn.dataset.p;
+  document.querySelectorAll('#reportSeg button').forEach(b=>b.classList.toggle('active', b===btn));
+  renderReport();
+});
+document.getElementById('reportDate').addEventListener('change', renderReport);
+
+function salesInPeriod(){
+  const refDate = document.getElementById('reportDate').value || todayISO();
+  if(reportPeriod==='day'){
+    return sales.filter(s=>s.date===refDate);
+  }
+  if(reportPeriod==='week'){
+    const {start,end} = getWeekRange(refDate);
+    return sales.filter(s=>s.date>=start && s.date<=end);
+  }
+  // month
+  const ym = refDate.slice(0,7);
+  return sales.filter(s=>s.date.slice(0,7)===ym);
+}
+
+function renderReport(){
+  const list = salesInPeriod();
+  const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
+  const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
+  const profit = revenue - cost;
+  const qty = list.reduce((a,s)=>a+s.qty,0);
+  document.getElementById('sumRevenue').textContent = fmtMoney(revenue);
+  document.getElementById('sumCost').textContent = fmtMoney(cost);
+  document.getElementById('sumProfit').textContent = fmtMoney(profit);
+  document.getElementById('sumQty').textContent = qty.toLocaleString('he-IL');
+  document.getElementById('sumOrders').textContent = list.length;
+
+  const byProduct = {};
+  list.forEach(s=>{
+    byProduct[s.product] = byProduct[s.product] || {qty:0, revenue:0, cost:0};
+    byProduct[s.product].qty += s.qty;
+    byProduct[s.product].revenue += s.qty*s.price;
+    byProduct[s.product].cost += s.qty*(s.cost||0);
+  });
+  const productRows = Object.entries(byProduct).sort((a,b)=>b[1].revenue-a[1].revenue);
+  document.getElementById('reportByProduct').innerHTML = productRows.length ? productRows.map(([name,d])=>`
+    <div class="report-item">
+      <div>
+        <div class="report-name">${name}</div>
+        <div class="report-sub">${d.qty} יחידות נמכרו</div>
+        ${d.cost ? `<div class="report-profit">רווח: ${fmtMoney(d.revenue-d.cost)}</div>` : ''}
+      </div>
+      <div class="report-val">${fmtMoney(d.revenue)}</div>
+    </div>
+  `).join('') : `<div class="empty-state">אין נתונים לתקופה זו</div>`;
+
+  const byCustomer = {};
+  list.forEach(s=>{
+    byCustomer[s.customer] = byCustomer[s.customer] || {qty:0, revenue:0, cost:0};
+    byCustomer[s.customer].qty += s.qty;
+    byCustomer[s.customer].revenue += s.qty*s.price;
+    byCustomer[s.customer].cost += s.qty*(s.cost||0);
+  });
+  const customerRows = Object.entries(byCustomer).sort((a,b)=>b[1].revenue-a[1].revenue);
+  document.getElementById('reportByCustomer').innerHTML = customerRows.length ? customerRows.map(([name,d])=>`
+    <div class="report-item">
+      <div>
+        <div class="report-name">${name}</div>
+        <div class="report-sub">${d.qty} יחידות</div>
+        ${d.cost ? `<div class="report-profit">רווח: ${fmtMoney(d.revenue-d.cost)}</div>` : ''}
+      </div>
+      <div class="report-val">${fmtMoney(d.revenue)}</div>
+    </div>
+  `).join('') : `<div class="empty-state">אין נתונים לתקופה זו</div>`;
+}
+
+/* init */
+renderCalendar();
+renderReport();
+</script>
+</body>
+</html>
