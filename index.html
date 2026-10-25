@@ -209,6 +209,17 @@
   .debt-item:last-child{border-bottom:none;}
   .debt-amt{color:var(--red);font-weight:700;font-size:15px;}
 
+  .compare-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 4px;border-bottom:1px solid var(--line);gap:10px;
+  }
+  .compare-item:last-child{border-bottom:none;}
+  .compare-nums{font-size:12px;color:var(--muted);margin-top:2px;}
+  .compare-diff{font-size:15px;font-weight:800;white-space:nowrap;}
+  .compare-diff.up{color:var(--accent-dark);}
+  .compare-diff.down{color:var(--red);}
+  .compare-diff.flat{color:var(--muted);}
+
   .install-tip{
     background:#FBF3E3;border:1px solid #EAD9AF;border-radius:12px;padding:12px 14px;
     font-size:12.5px;color:#7A5A17;margin-bottom:14px;line-height:1.6;
@@ -383,18 +394,24 @@
   <!-- GROWTH VIEW -->
   <section class="view" id="view-growth">
     <div class="card">
-      <h2>📈 קצב צמיחה</h2>
-      <div id="growthSummary"></div>
+      <h2>📦 השוואה שבועית לפי מוצר</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">השבוע הנוכחי לעומת השבוע שעבר</div>
+      <div id="weekCompareList"></div>
+    </div>
+
+    <div class="card">
+      <h2>🗓️ השוואה חודשית</h2>
+      <div id="monthCompare"></div>
     </div>
 
     <div class="card">
       <h2>🧮 תחזית — מה יקרה אם...?</h2>
       <div id="baselineInfo" style="font-size:12.5px;color:var(--muted);margin-bottom:14px;"></div>
 
-      <label>הגדלת כמות המכירות ב-%</label>
-      <input type="number" id="growPct" value="0" step="5" inputmode="numeric">
+      <label>כמה יחידות נוספות תרצה למכור בחודש?</label>
+      <input type="number" id="growUnits" value="0" step="5" inputmode="numeric">
 
-      <label>העלאת מחיר ליחידה (₪)</label>
+      <label>כמה להעלות את המחיר ליחידה (₪)</label>
       <input type="number" id="growPriceAdd" value="0" step="0.5" inputmode="decimal">
 
       <div class="total-preview two-line" style="margin-top:16px">
@@ -402,7 +419,7 @@
         <div class="line muted"><span>עלות חודשית צפויה</span><span id="projCost">₪0</span></div>
         <div class="line profit"><span>רווח חודשי צפוי</span><span id="projProfit">₪0</span></div>
         <div class="line" style="border-top:1px dashed var(--line);padding-top:8px;margin-top:4px">
-          <span>שינוי ברווח</span><span id="projDelta">₪0</span>
+          <span>כמה יותר תרוויח</span><span id="projDelta">₪0</span>
         </div>
       </div>
     </div>
@@ -1045,7 +1062,7 @@ function renderInventory(){
   `;}).join('') : `<div class="empty-state">אין עדיין נתוני מלאי</div>`;
 }
 
-/* ---------- Growth & Profitability ---------- */
+/* ---------- Growth & Profitability (plain numbers, no percentages) ---------- */
 function monthKey(offset){
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-offset);
   return d.toISOString().slice(0,7);
@@ -1054,17 +1071,18 @@ function monthLabel(offset){
   const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-offset);
   return d.toLocaleDateString('he-IL', {month:'long', year:'numeric'});
 }
-function statsForMonth(key){
-  const list = sales.filter(s=>s.date.slice(0,7)===key);
-  const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
-  const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
-  return {revenue, cost, profit:revenue-cost};
+function unitsByProductInRange(startISO, endISO){
+  const map = {};
+  sales.forEach(s=>{
+    if(s.date>=startISO && s.date<=endISO) map[s.product] = (map[s.product]||0) + s.qty;
+  });
+  return map;
 }
-function pctChange(curr, prev){
-  if(prev===0) return curr>0 ? null : 0;
-  return ((curr-prev)/prev)*100;
+function diffBadge(diff){
+  if(diff>0) return `<span class="compare-diff up">+${diff} ⬆️</span>`;
+  if(diff<0) return `<span class="compare-diff down">${diff} ⬇️</span>`;
+  return `<span class="compare-diff flat">ללא שינוי</span>`;
 }
-function pctLabel(p){ return p===null ? '—' : (p>=0?'+':'')+p.toFixed(1)+'%'; }
 
 function baseline30(){
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-29);
@@ -1086,11 +1104,11 @@ function updateProjection(){
     el('projDelta').textContent = 'אין עדיין מספיק נתוני מכירות (30 יום אחרונים)';
     return;
   }
-  const growPct = parseFloat(el('growPct').value)||0;
+  const extraUnits = parseFloat(el('growUnits').value)||0;
   const priceAdd = parseFloat(el('growPriceAdd').value)||0;
   const avgPrice = b.revenue/b.units;
   const avgCost = b.cost/b.units;
-  const newUnits = b.units*(1+growPct/100);
+  const newUnits = b.units + extraUnits;
   const newPrice = Math.max(0, avgPrice+priceAdd);
   const newRevenue = newUnits*newPrice;
   const newCost = newUnits*avgCost;
@@ -1103,36 +1121,63 @@ function updateProjection(){
   el('projDelta').textContent = (delta>=0?'+':'') + fmtMoney(delta) + ' לחודש';
   el('projDelta').style.color = delta>=0 ? 'var(--profit)' : 'var(--red)';
 }
-document.getElementById('growPct').addEventListener('input', updateProjection);
+document.getElementById('growUnits').addEventListener('input', updateProjection);
 document.getElementById('growPriceAdd').addEventListener('input', updateProjection);
 
 function renderGrowth(){
-  const m0 = statsForMonth(monthKey(0));
-  const m1 = statsForMonth(monthKey(1));
-  const m2 = statsForMonth(monthKey(2));
-  const revGrowth = pctChange(m0.revenue, m2.revenue);
-  const profitGrowth = pctChange(m0.profit, m2.profit);
-  const revColor = revGrowth===null ? 'var(--ink)' : (revGrowth>=0 ? 'var(--accent-dark)' : 'var(--red)');
+  // --- weekly, per product ---
+  const thisWeek = getWeekRange(todayISO());
+  const lastWeekStart = new Date(thisWeek.start+'T00:00:00'); lastWeekStart.setDate(lastWeekStart.getDate()-7);
+  const lastWeekEnd = new Date(thisWeek.start+'T00:00:00'); lastWeekEnd.setDate(lastWeekEnd.getDate()-1);
+  const lastWeekStartISO = lastWeekStart.toISOString().slice(0,10);
+  const lastWeekEndISO = lastWeekEnd.toISOString().slice(0,10);
 
-  document.getElementById('growthSummary').innerHTML = `
-    <div style="display:flex;justify-content:space-between;margin-bottom:14px">
-      <div style="text-align:center;flex:1">
-        <div style="font-size:11px;color:var(--muted)">${monthLabel(2)}</div>
-        <div style="font-weight:700;font-size:14px">${fmtMoney(m2.revenue)}</div>
+  const thisWeekUnits = unitsByProductInRange(thisWeek.start, thisWeek.end);
+  const lastWeekUnits = unitsByProductInRange(lastWeekStartISO, lastWeekEndISO);
+  const allProducts = [...new Set([...Object.keys(thisWeekUnits), ...Object.keys(lastWeekUnits)])];
+
+  if(!allProducts.length){
+    document.getElementById('weekCompareList').innerHTML = `<div class="empty-state">אין עדיין מספיק נתונים להשוואה שבועית</div>`;
+  } else {
+    const rows = allProducts.map(p=>{
+      const cur = thisWeekUnits[p]||0, prev = lastWeekUnits[p]||0;
+      return {p, cur, prev, diff: cur-prev};
+    }).sort((a,b)=> (b.cur+b.prev) - (a.cur+a.prev));
+    document.getElementById('weekCompareList').innerHTML = rows.map(r=>`
+      <div class="compare-item">
+        <div>
+          <div class="report-name">${r.p}</div>
+          <div class="compare-nums">השבוע: ${r.cur} יח׳ · שבוע שעבר: ${r.prev} יח׳</div>
+        </div>
+        ${diffBadge(r.diff)}
       </div>
+    `).join('');
+  }
+
+  // --- monthly, total units + plain money difference ---
+  const m0key = monthKey(0), m1key = monthKey(1);
+  const m0 = sales.filter(s=>s.date.slice(0,7)===m0key);
+  const m1 = sales.filter(s=>s.date.slice(0,7)===m1key);
+  const u0 = m0.reduce((a,s)=>a+s.qty,0), u1 = m1.reduce((a,s)=>a+s.qty,0);
+  const p0 = m0.reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+  const p1 = m1.reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+  const unitsDiff = u0-u1, profitDiff = p0-p1;
+
+  document.getElementById('monthCompare').innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
       <div style="text-align:center;flex:1">
         <div style="font-size:11px;color:var(--muted)">${monthLabel(1)}</div>
-        <div style="font-weight:700;font-size:14px">${fmtMoney(m1.revenue)}</div>
+        <div style="font-weight:700;font-size:16px">${u1} יח׳</div>
       </div>
       <div style="text-align:center;flex:1">
         <div style="font-size:11px;color:var(--muted)">${monthLabel(0)} (עד כה)</div>
-        <div style="font-weight:700;font-size:14px">${fmtMoney(m0.revenue)}</div>
+        <div style="font-weight:700;font-size:16px">${u0} יח׳</div>
       </div>
     </div>
     <div style="text-align:center;padding:12px;background:var(--paper);border-radius:10px">
-      <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">צמיחה בהכנסה לעומת לפני חודשיים</div>
-      <div style="font-size:24px;font-weight:800;color:${revColor}">${pctLabel(revGrowth)}</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:6px">רווח: ${fmtMoney(m2.profit)} ← ${fmtMoney(m0.profit)} (${pctLabel(profitGrowth)})</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">כמות שמכרת החודש לעומת חודש שעבר</div>
+      <div style="font-size:24px">${diffBadge(unitsDiff)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">רווח: ${fmtMoney(p1)} ← ${fmtMoney(p0)} (${profitDiff>=0?'+':''}${fmtMoney(profitDiff)})</div>
     </div>
   `;
 
