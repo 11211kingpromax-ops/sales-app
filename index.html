@@ -50,10 +50,10 @@
   }
   .tab-btn{
     background:none;border:none;color:var(--muted);
-    display:flex;flex-direction:column;align-items:center;gap:3px;
-    font-size:11.5px;padding:6px 10px;border-radius:10px;flex:1;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:10.5px;padding:6px 2px;border-radius:10px;flex:1;min-width:0;
   }
-  .tab-btn svg{width:22px;height:22px;stroke:var(--muted);fill:none;stroke-width:1.8;}
+  .tab-btn svg{width:20px;height:20px;stroke:var(--muted);fill:none;stroke-width:1.8;}
   .tab-btn.active{color:var(--accent-dark);font-weight:600;}
   .tab-btn.active svg{stroke:var(--accent-dark);}
 
@@ -197,6 +197,18 @@
   }
   .stock-thresh label{display:inline;margin:0;font-size:11px;color:var(--muted);}
 
+  .debt-tag{
+    display:inline-block;margin-top:4px;background:#FBEAE8;color:var(--red);
+    border:1px solid #F0C6C1;font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:20px;
+  }
+  .debt-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 4px;border-bottom:1px solid var(--line);gap:10px;
+  }
+  .debt-item:last-child{border-bottom:none;}
+  .debt-amt{color:var(--red);font-weight:700;font-size:15px;}
+
   .install-tip{
     background:#FBF3E3;border:1px solid #EAD9AF;border-radius:12px;padding:12px 14px;
     font-size:12.5px;color:#7A5A17;margin-bottom:14px;line-height:1.6;
@@ -259,6 +271,11 @@
       <label>מחיר קנייה ליחידה (₪) <span style="color:#9AA69F">— אופציונלי, לחישוב רווח</span></label>
       <input type="number" id="saleCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
 
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer">
+        <input type="checkbox" id="saleUnpaid" style="width:18px;height:18px;accent-color:var(--red)">
+        <span style="font-size:13.5px;color:var(--ink)">מכירה בהקפה (עדיין לא שולם)</span>
+      </label>
+
       <div class="total-preview two-line">
         <div class="line"><span>סה״כ מכירה</span><span id="totalPreview">₪0</span></div>
         <div class="line muted"><span>סה״כ עלות</span><span id="costPreview">₪0</span></div>
@@ -300,6 +317,11 @@
     <div class="card" id="churnCard" style="display:none;background:linear-gradient(135deg,#B0473E,#5C241E);border:none;">
       <h2 style="color:#fff;display:flex;align-items:center;gap:6px">😴 הפסיקו להזמין — אולי להתקשר?</h2>
       <div id="churnList"></div>
+    </div>
+
+    <div class="card" id="debtsCard" style="display:none;">
+      <h2>💰 חובות פתוחים (הקפה)</h2>
+      <div id="debtsList"></div>
     </div>
 
     <div class="card">
@@ -358,6 +380,34 @@
     </div>
   </section>
 
+  <!-- GROWTH VIEW -->
+  <section class="view" id="view-growth">
+    <div class="card">
+      <h2>📈 קצב צמיחה</h2>
+      <div id="growthSummary"></div>
+    </div>
+
+    <div class="card">
+      <h2>🧮 תחזית — מה יקרה אם...?</h2>
+      <div id="baselineInfo" style="font-size:12.5px;color:var(--muted);margin-bottom:14px;"></div>
+
+      <label>הגדלת כמות המכירות ב-%</label>
+      <input type="number" id="growPct" value="0" step="5" inputmode="numeric">
+
+      <label>העלאת מחיר ליחידה (₪)</label>
+      <input type="number" id="growPriceAdd" value="0" step="0.5" inputmode="decimal">
+
+      <div class="total-preview two-line" style="margin-top:16px">
+        <div class="line"><span>הכנסה חודשית צפויה</span><span id="projRevenue">₪0</span></div>
+        <div class="line muted"><span>עלות חודשית צפויה</span><span id="projCost">₪0</span></div>
+        <div class="line profit"><span>רווח חודשי צפוי</span><span id="projProfit">₪0</span></div>
+        <div class="line" style="border-top:1px dashed var(--line);padding-top:8px;margin-top:4px">
+          <span>שינוי ברווח</span><span id="projDelta">₪0</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </main>
 
 <div class="tabbar">
@@ -378,6 +428,10 @@
     <span id="invBadge" style="display:none;position:absolute;top:2px;right:28%;width:9px;height:9px;border-radius:50%;background:var(--red);border:1.5px solid var(--paper-2)"></span>
     <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10" stroke-linecap="round"/></svg>
     מלאי
+  </button>
+  <button class="tab-btn" data-view="growth" onclick="switchTab('growth')">
+    <svg viewBox="0 0 24 24"><path d="M4 16l5-6 4 4 7-9" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 5h6v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    צמיחה
   </button>
 </div>
 
@@ -451,6 +505,7 @@ function switchTab(name){
   if(name==='cal') renderCalendar();
   if(name==='reports') renderReport();
   if(name==='inv') renderInventory();
+  if(name==='growth') renderGrowth();
 }
 
 /* ---------- Add sale ---------- */
@@ -515,6 +570,7 @@ function startEdit(id){
   document.getElementById('salePrice').value = s.price;
   document.getElementById('saleCost').value = s.cost || '';
   document.getElementById('salePhone').value = s.phone || '';
+  document.getElementById('saleUnpaid').checked = (s.paid === false);
   updateTotalPreview();
 
   document.getElementById('editBanner').style.display = 'flex';
@@ -534,6 +590,7 @@ function cancelEdit(){
   document.getElementById('salePrice').value='';
   document.getElementById('saleCost').value='';
   document.getElementById('salePhone').value='';
+  document.getElementById('saleUnpaid').checked = false;
   document.getElementById('saleDate').value = todayISO();
   updateTotalPreview();
 }
@@ -547,6 +604,7 @@ function addSale(){
   const costRaw = document.getElementById('saleCost').value;
   const cost = costRaw==='' ? 0 : parseFloat(costRaw);
   const phone = document.getElementById('salePhone').value.trim();
+  const paid = !document.getElementById('saleUnpaid').checked;
 
   if(!product){ toast('נא להזין שם מוצר'); return; }
   if(!customer){ toast('נא להזין שם לקוח'); return; }
@@ -560,7 +618,7 @@ function addSale(){
       const old = sales[idx];
       adjustStock(old.product, old.qty);   // give back old stock
       adjustStock(product, -qty);          // take new stock
-      sales[idx] = {...old, date, product, customer, qty, price, cost, phone};
+      sales[idx] = {...old, date, product, customer, qty, price, cost, phone, paid};
     }
     saveSales(sales);
     refreshDatalists();
@@ -571,7 +629,7 @@ function addSale(){
     return;
   }
 
-  sales.push({id:uid(), date, product, customer, qty, price, cost, phone});
+  sales.push({id:uid(), date, product, customer, qty, price, cost, phone, paid});
   saveSales(sales);
   adjustStock(product, -qty);
   if(cost) { inventory[product] = inventory[product]||{stock:0,threshold:5,lastCost:0}; inventory[product].lastCost = cost; saveInventory(); }
@@ -583,10 +641,27 @@ function addSale(){
   document.getElementById('salePrice').value='';
   document.getElementById('saleCost').value='';
   document.getElementById('salePhone').value='';
+  document.getElementById('saleUnpaid').checked = false;
   updateTotalPreview();
   renderRegulars();
 
   toast('המכירה נשמרה ✓');
+}
+
+function markPaid(id){
+  const s = sales.find(x=>x.id===id);
+  if(!s) return;
+  s.paid = true;
+  saveSales(sales);
+  renderDayPanel();
+  renderReport();
+}
+
+function markCustomerPaid(customerName){
+  sales.forEach(s=>{ if(s.customer===customerName && s.paid===false) s.paid = true; });
+  saveSales(sales);
+  renderReport();
+  renderDayPanel();
 }
 
 /* ---------- Calendar ---------- */
@@ -653,6 +728,7 @@ function renderDayPanel(){
         <div class="sale-main"><b>${s.product}</b> · ${s.customer}</div>
         <div class="sale-sub">${s.qty} יח׳ × ${fmtMoney(s.price)}${c ? ` (עלות ${fmtMoney(c)})` : ''}</div>
         ${c ? `<div class="report-profit">רווח: ${fmtMoney(lineProfit)}</div>` : ''}
+        ${s.paid===false ? `<button class="debt-tag" onclick="markPaid('${s.id}')">💳 בהקפה — לחץ לסימון כשולם</button>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:2px">
         <span class="sale-amt">${fmtMoney(s.qty*s.price)}</span>
@@ -815,8 +891,33 @@ function renderRegulars(){
   }
 }
 
+function renderDebts(){
+  const unpaid = sales.filter(s=>s.paid===false);
+  const card = document.getElementById('debtsCard');
+  if(!unpaid.length){ card.style.display='none'; return; }
+  card.style.display='block';
+
+  const byCustomer = {};
+  unpaid.forEach(s=>{
+    byCustomer[s.customer] = (byCustomer[s.customer]||0) + s.qty*s.price;
+  });
+  const rows = Object.entries(byCustomer).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('debtsList').innerHTML = rows.map(([name,amt])=>`
+    <div class="debt-item">
+      <div>
+        <div class="report-name">${name}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="debt-amt">${fmtMoney(amt)}</span>
+        <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="markCustomerPaid('${name.replace(/'/g,"\\'")}')">✓ סמן כשולם</button>
+      </div>
+    </div>
+  `).join('');
+}
+
 function renderReport(){
   renderRegulars();
+  renderDebts();
   const list = salesInPeriod();
   const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
   const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
@@ -942,6 +1043,104 @@ function renderInventory(){
       <div class="stock-qty ${cls}">${d.stock}</div>
     </div>
   `;}).join('') : `<div class="empty-state">אין עדיין נתוני מלאי</div>`;
+}
+
+/* ---------- Growth & Profitability ---------- */
+function monthKey(offset){
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-offset);
+  return d.toISOString().slice(0,7);
+}
+function monthLabel(offset){
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-offset);
+  return d.toLocaleDateString('he-IL', {month:'long', year:'numeric'});
+}
+function statsForMonth(key){
+  const list = sales.filter(s=>s.date.slice(0,7)===key);
+  const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
+  const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
+  return {revenue, cost, profit:revenue-cost};
+}
+function pctChange(curr, prev){
+  if(prev===0) return curr>0 ? null : 0;
+  return ((curr-prev)/prev)*100;
+}
+function pctLabel(p){ return p===null ? '—' : (p>=0?'+':'')+p.toFixed(1)+'%'; }
+
+function baseline30(){
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-29);
+  const cutoffISO = cutoff.toISOString().slice(0,10);
+  const list = sales.filter(s=>s.date>=cutoffISO);
+  const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
+  const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
+  const units = list.reduce((a,s)=>a+s.qty,0);
+  return {revenue, cost, profit:revenue-cost, units};
+}
+
+function updateProjection(){
+  const b = baseline30();
+  const el = id=>document.getElementById(id);
+  if(b.units<=0){
+    el('projRevenue').textContent = '—';
+    el('projCost').textContent = '—';
+    el('projProfit').textContent = '—';
+    el('projDelta').textContent = 'אין עדיין מספיק נתוני מכירות (30 יום אחרונים)';
+    return;
+  }
+  const growPct = parseFloat(el('growPct').value)||0;
+  const priceAdd = parseFloat(el('growPriceAdd').value)||0;
+  const avgPrice = b.revenue/b.units;
+  const avgCost = b.cost/b.units;
+  const newUnits = b.units*(1+growPct/100);
+  const newPrice = Math.max(0, avgPrice+priceAdd);
+  const newRevenue = newUnits*newPrice;
+  const newCost = newUnits*avgCost;
+  const newProfit = newRevenue-newCost;
+  const delta = newProfit-b.profit;
+
+  el('projRevenue').textContent = fmtMoney(newRevenue);
+  el('projCost').textContent = fmtMoney(newCost);
+  el('projProfit').textContent = fmtMoney(newProfit);
+  el('projDelta').textContent = (delta>=0?'+':'') + fmtMoney(delta) + ' לחודש';
+  el('projDelta').style.color = delta>=0 ? 'var(--profit)' : 'var(--red)';
+}
+document.getElementById('growPct').addEventListener('input', updateProjection);
+document.getElementById('growPriceAdd').addEventListener('input', updateProjection);
+
+function renderGrowth(){
+  const m0 = statsForMonth(monthKey(0));
+  const m1 = statsForMonth(monthKey(1));
+  const m2 = statsForMonth(monthKey(2));
+  const revGrowth = pctChange(m0.revenue, m2.revenue);
+  const profitGrowth = pctChange(m0.profit, m2.profit);
+  const revColor = revGrowth===null ? 'var(--ink)' : (revGrowth>=0 ? 'var(--accent-dark)' : 'var(--red)');
+
+  document.getElementById('growthSummary').innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:14px">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:11px;color:var(--muted)">${monthLabel(2)}</div>
+        <div style="font-weight:700;font-size:14px">${fmtMoney(m2.revenue)}</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:11px;color:var(--muted)">${monthLabel(1)}</div>
+        <div style="font-weight:700;font-size:14px">${fmtMoney(m1.revenue)}</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:11px;color:var(--muted)">${monthLabel(0)} (עד כה)</div>
+        <div style="font-weight:700;font-size:14px">${fmtMoney(m0.revenue)}</div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--paper);border-radius:10px">
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">צמיחה בהכנסה לעומת לפני חודשיים</div>
+      <div style="font-size:24px;font-weight:800;color:${revColor}">${pctLabel(revGrowth)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">רווח: ${fmtMoney(m2.profit)} ← ${fmtMoney(m0.profit)} (${pctLabel(profitGrowth)})</div>
+    </div>
+  `;
+
+  const b = baseline30();
+  document.getElementById('baselineInfo').textContent = b.units>0
+    ? `מבוסס על 30 הימים האחרונים: ${b.units} יחידות, הכנסה ${fmtMoney(b.revenue)}, רווח ${fmtMoney(b.profit)}`
+    : 'עדיין אין מספיק מכירות ב-30 הימים האחרונים כדי לבנות תחזית — התחזית תתעדכן ככל שתרשום מכירות.';
+  updateProjection();
 }
 
 /* init */
