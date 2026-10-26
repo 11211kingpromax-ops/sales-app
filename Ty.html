@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#16332C">
+<title>פנקס מכירות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16332C;
+    --paper:#F4F2EC;
+    --paper-2:#ffffff;
+    --line:#DAD6C9;
+    --accent:#1F7A5C;
+    --accent-dark:#155842;
+    --gold:#C98A2C;
+    --red:#B0473E;
+    --profit:#2B5FA0;
+    --muted:#6B7A73;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:'Rubik',sans-serif;}
+  body{padding-bottom:78px;min-height:100vh;}
+  h1,h2,h3{margin:0;font-weight:700;}
+  button{font-family:inherit;cursor:pointer;}
+  input,select{font-family:inherit;}
+
+  /* Header */
+  .topbar{
+    background:var(--ink);color:var(--paper);
+    padding:22px 20px 18px;
+    display:flex;align-items:baseline;justify-content:space-between;
+  }
+  .topbar h1{font-size:21px;letter-spacing:.2px;}
+  .topbar .date-today{font-size:13px;color:#B9C7C1;}
+
+  main{padding:16px;max-width:520px;margin:0 auto;}
+
+  /* Bottom nav */
+  .tabbar{
+    position:fixed;bottom:0;left:0;right:0;
+    background:var(--paper-2);border-top:1px solid var(--line);
+    display:flex;justify-content:space-around;
+    padding:8px 4px calc(8px + env(safe-area-inset-bottom));
+    z-index:50;
+  }
+  .tab-btn{
+    background:none;border:none;color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+    font-size:10.5px;padding:6px 2px;border-radius:10px;flex:1;min-width:0;
+  }
+  .tab-btn svg{width:20px;height:20px;stroke:var(--muted);fill:none;stroke-width:1.8;}
+  .tab-btn.active{color:var(--accent-dark);font-weight:600;}
+  .tab-btn.active svg{stroke:var(--accent-dark);}
+
+  .view{display:none;animation:fadeIn .18s ease;}
+  .view.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  /* Cards */
+  .card{
+    background:var(--paper-2);border:1px solid var(--line);
+    border-radius:14px;padding:16px;margin-bottom:14px;
+  }
+  .card h2{font-size:15px;color:var(--accent-dark);margin-bottom:12px;}
+
+  label{display:block;font-size:12.5px;color:var(--muted);margin:12px 0 5px;}
+  label:first-of-type{margin-top:0;}
+  input[type=text],input[type=number],input[type=date],select{
+    width:100%;padding:11px 12px;border-radius:9px;border:1px solid var(--line);
+    background:var(--paper);font-size:15px;color:var(--ink);
+  }
+  input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;}
+
+  .row2{display:flex;gap:10px;}
+  .row2>div{flex:1;}
+
+  .total-preview.two-line{flex-direction:column;gap:6px;}
+  .total-preview .line{display:flex;justify-content:space-between;}
+  .total-preview .line.profit{color:var(--profit);}
+  .total-preview .line.muted{color:var(--muted);font-weight:500;font-size:13px;}
+
+  .btn-primary{
+    width:100%;padding:13px;background:var(--accent);color:#fff;border:none;
+    border-radius:10px;font-size:15px;font-weight:600;margin-top:16px;
+  }
+  .btn-primary:active{background:var(--accent-dark);}
+  .btn-secondary{
+    background:transparent;border:1px solid var(--line);color:var(--ink);
+    padding:9px 14px;border-radius:9px;font-size:13.5px;
+  }
+
+  .total-preview{
+    margin-top:14px;padding:10px 12px;background:#EEF3EF;border-radius:9px;
+    display:flex;justify-content:space-between;font-size:14px;color:var(--accent-dark);font-weight:600;
+  }
+
+  /* Calendar */
+  .cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .cal-header .cal-title{font-size:16px;font-weight:700;}
+  .cal-nav-btn{
+    background:var(--paper);border:1px solid var(--line);border-radius:8px;
+    width:34px;height:34px;display:flex;align-items:center;justify-content:center;
+    color:var(--ink);font-size:16px;
+  }
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+  .cal-dow{text-align:center;font-size:11px;color:var(--muted);padding-bottom:4px;}
+  .cal-day{
+    aspect-ratio:1;border-radius:9px;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;font-size:13px;position:relative;
+    background:var(--paper);color:var(--ink);border:1px solid transparent;
+  }
+  .cal-day.empty{background:transparent;}
+  .cal-day.today{border:1.5px solid var(--gold);font-weight:700;}
+  .cal-day.has-sales{background:#E4EFE9;color:var(--accent-dark);font-weight:600;}
+  .cal-day.selected{background:var(--accent);color:#fff;}
+  .cal-day .dot{width:5px;height:5px;border-radius:50%;background:var(--gold);position:absolute;bottom:5px;}
+  .cal-day.selected .dot{background:#fff;}
+
+  .day-panel{margin-top:16px;}
+  .day-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .day-panel-head h3{font-size:15px;}
+  .day-total{font-size:13px;color:var(--muted);}
+
+  .sale-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 4px;border-bottom:1px solid var(--line);gap:10px;
+  }
+  .sale-row:last-child{border-bottom:none;}
+  .sale-main{font-size:14px;}
+  .sale-main b{font-weight:600;}
+  .sale-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .sale-amt{font-size:14px;font-weight:700;color:var(--accent-dark);white-space:nowrap;}
+  .del-btn{
+    background:none;border:none;color:var(--red);font-size:18px;padding:4px 8px;line-height:1;
+  }
+  .empty-state{text-align:center;color:var(--muted);font-size:13.5px;padding:26px 10px;}
+
+  /* Reports */
+  .seg{display:flex;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:14px;}
+  .seg button{flex:1;padding:10px;background:none;border:none;font-size:13.5px;color:var(--muted);}
+  .seg button.active{background:var(--accent);color:#fff;font-weight:600;}
+
+  .report-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 4px;border-bottom:1px solid var(--line);
+  }
+  .report-item:last-child{border-bottom:none;}
+  .report-name{font-size:14.5px;font-weight:600;}
+  .report-sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .report-val{font-size:15px;font-weight:700;color:var(--accent-dark);}
+  .report-qty{font-size:12px;color:var(--muted);}
+
+  .summary-strip{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .summary-box{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
+  .summary-box .num{font-size:18px;font-weight:800;color:var(--accent-dark);}
+  .summary-box.is-profit .num{color:var(--profit);}
+  .summary-box .lbl{font-size:11px;color:var(--muted);margin-top:2px;}
+
+  .report-profit{font-size:12px;color:var(--profit);margin-top:1px;}
+
+  .regular-item{
+    display:flex;justify-content:space-between;align-items:center;
+    background:rgba(255,255,255,.1);border-radius:10px;
+    padding:11px 13px;margin-top:9px;color:#fff;
+  }
+  .regular-item .rname{font-size:14.5px;font-weight:600;}
+  .regular-item .rsub{font-size:12px;color:#CFE3D8;margin-top:2px;}
+  .regular-item .rstreak{
+    background:var(--gold);color:#3A2600;font-size:12px;font-weight:700;
+    padding:4px 10px;border-radius:20px;white-space:nowrap;
+  }
+  .wa-btn{
+    display:inline-flex;align-items:center;gap:5px;
+    background:#25D366;color:#06340F;text-decoration:none;
+    font-size:12px;font-weight:700;padding:5px 11px;border-radius:20px;white-space:nowrap;
+  }
+  .no-phone-hint{font-size:11px;color:rgba(255,255,255,.75);white-space:nowrap;}
+
+  .stock-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 4px;border-bottom:1px solid var(--line);gap:10px;
+  }
+  .stock-item:last-child{border-bottom:none;}
+  .stock-name{font-size:14.5px;font-weight:600;}
+  .stock-qty{font-size:16px;font-weight:800;}
+  .stock-qty.low{color:var(--gold);}
+  .stock-qty.out{color:var(--red);}
+  .stock-thresh{display:flex;align-items:center;gap:5px;margin-top:3px;}
+  .stock-thresh input{
+    width:46px;padding:3px 5px;font-size:11.5px;border-radius:6px;
+    border:1px solid var(--line);background:var(--paper);text-align:center;
+  }
+  .stock-thresh label{display:inline;margin:0;font-size:11px;color:var(--muted);}
+
+  .debt-tag{
+    display:inline-block;margin-top:4px;background:#FBEAE8;color:var(--red);
+    border:1px solid #F0C6C1;font-size:11px;font-weight:600;
+    padding:3px 9px;border-radius:20px;
+  }
+  .debt-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 4px;border-bottom:1px solid var(--line);gap:10px;
+  }
+  .debt-item:last-child{border-bottom:none;}
+  .debt-amt{color:var(--red);font-weight:700;font-size:15px;}
+
+  .compare-item{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 4px;border-bottom:1px solid var(--line);gap:10px;
+  }
+  .compare-item:last-child{border-bottom:none;}
+  .compare-nums{font-size:12px;color:var(--muted);margin-top:2px;}
+  .compare-diff{font-size:15px;font-weight:800;white-space:nowrap;}
+  .compare-diff.up{color:var(--accent-dark);}
+  .compare-diff.down{color:var(--red);}
+  .compare-diff.flat{color:var(--muted);}
+
+  .install-tip{
+    background:#FBF3E3;border:1px solid #EAD9AF;border-radius:12px;padding:12px 14px;
+    font-size:12.5px;color:#7A5A17;margin-bottom:14px;line-height:1.6;
+  }
+  .toast{
+    position:fixed;bottom:92px;left:50%;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:10px 18px;border-radius:20px;
+    font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:100;
+  }
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📒 פנקס מכירות</h1>
+  <div class="date-today" id="todayLabel"></div>
+</div>
+
+<main>
+
+  <!-- ADD SALE VIEW -->
+  <section class="view active" id="view-add">
+    <div class="install-tip" id="installTip">
+      💡 להוספת האפליקציה למסך הבית: פתחו בדפדפן כרום, לחצו על תפריט (⋮) ובחרו "הוספה למסך הבית". היא תיפתח כמו אפליקציה רגילה.
+      <div style="margin-top:8px"><button class="btn-secondary" onclick="dismissTip()">הבנתי, אל תראה שוב</button></div>
+    </div>
+
+    <div class="card">
+      <h2 id="formTitle">מכירה חדשה</h2>
+      <div id="liveWeek" style="background:#EEF3EF;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12.5px;color:var(--accent-dark)"></div>
+      <div id="editBanner" style="display:none;background:#FBF3E3;border:1px solid #EAD9AF;border-radius:9px;padding:9px 12px;margin-bottom:12px;font-size:12.5px;color:#7A5A17;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <span>✏️ עורך מכירה קיימת</span>
+        <button class="btn-secondary" style="padding:4px 10px;font-size:12px" onclick="cancelEdit()">ביטול</button>
+      </div>
+      <label>תאריך</label>
+      <input type="date" id="saleDate">
+
+      <label>מוצר</label>
+      <input type="text" id="saleProduct" list="productList" placeholder="לדוגמה: לחם, עוגה, ג׳לי...">
+      <datalist id="productList"></datalist>
+
+      <label>לקוח</label>
+      <input type="text" id="saleCustomer" list="customerList" placeholder="שם הלקוח">
+      <datalist id="customerList"></datalist>
+
+      <label>טלפון הלקוח <span style="color:#9AA69F">— אופציונלי, לשליחת הודעות וואטסאפ</span></label>
+      <input type="tel" id="salePhone" placeholder="05XXXXXXXX" inputmode="tel">
+
+      <label>עיר <span style="color:#9AA69F">— אופציונלי</span></label>
+      <input type="text" id="saleCity" list="cityList" placeholder="לדוגמה: תל אביב">
+      <datalist id="cityList"></datalist>
+
+      <div class="row2">
+        <div>
+          <label>כמות</label>
+          <input type="number" id="saleQty" min="0" step="1" placeholder="0" inputmode="numeric">
+        </div>
+        <div>
+          <label>מחיר מכירה ליחידה (₪)</label>
+          <input type="number" id="salePrice" min="0" step="0.1" placeholder="0" inputmode="decimal">
+        </div>
+      </div>
+
+      <label>מחיר קנייה ליחידה (₪) <span style="color:#9AA69F">— אופציונלי, לחישוב רווח</span></label>
+      <input type="number" id="saleCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
+
+      <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer">
+        <input type="checkbox" id="saleUnpaid" style="width:18px;height:18px;accent-color:var(--red)">
+        <span style="font-size:13.5px;color:var(--ink)">מכירה בהקפה (עדיין לא שולם)</span>
+      </label>
+
+      <div class="total-preview two-line">
+        <div class="line"><span>סה״כ מכירה</span><span id="totalPreview">₪0</span></div>
+        <div class="line muted"><span>סה״כ עלות</span><span id="costPreview">₪0</span></div>
+        <div class="line profit"><span>רווח לעסקה</span><span id="profitPreview">₪0</span></div>
+      </div>
+
+      <button class="btn-primary" id="saveBtn" onclick="addSale()">שמור מכירה</button>
+    </div>
+  </section>
+
+  <!-- CALENDAR VIEW -->
+  <section class="view" id="view-cal">
+    <div class="card">
+      <div class="cal-header">
+        <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+        <div class="cal-title" id="calTitle"></div>
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <div class="card day-panel">
+      <div class="day-panel-head">
+        <h3 id="dayPanelTitle">בחרו יום</h3>
+        <span class="day-total" id="dayPanelTotal"></span>
+      </div>
+      <div id="dayPanelList"></div>
+      <button class="btn-secondary" style="width:100%;margin-top:10px" onclick="goAddForSelectedDay()">➕ הוספת מכירה ליום זה</button>
+    </div>
+  </section>
+
+  <!-- REPORTS VIEW -->
+  <section class="view" id="view-reports">
+    <div class="card" id="regularsCard" style="display:none;background:linear-gradient(135deg,#1F7A5C,#16332C);border:none;">
+      <h2 style="color:#fff;display:flex;align-items:center;gap:6px">🔔 לקוחות קבועים — הציעו מנוי!</h2>
+      <div id="regularsList"></div>
+    </div>
+
+    <div class="card" id="churnCard" style="display:none;background:linear-gradient(135deg,#B0473E,#5C241E);border:none;">
+      <h2 style="color:#fff;display:flex;align-items:center;gap:6px">😴 הפסיקו להזמין — אולי להתקשר?</h2>
+      <div id="churnList"></div>
+    </div>
+
+    <div class="card" id="debtsCard" style="display:none;">
+      <h2>💰 חובות פתוחים (הקפה)</h2>
+      <div id="debtsList"></div>
+    </div>
+
+    <div class="card">
+      <div class="seg" id="reportSeg">
+        <button data-p="day" class="active">יומי</button>
+        <button data-p="week">שבועי</button>
+        <button data-p="month">חודשי</button>
+      </div>
+      <input type="date" id="reportDate" style="margin-bottom:14px">
+
+      <div class="summary-strip">
+        <div class="summary-box"><div class="num" id="sumRevenue">₪0</div><div class="lbl">סה״כ הכנסה</div></div>
+        <div class="summary-box"><div class="num" id="sumCost">₪0</div><div class="lbl">סה״כ עלות</div></div>
+        <div class="summary-box is-profit"><div class="num" id="sumProfit">₪0</div><div class="lbl">רווח נקי</div></div>
+        <div class="summary-box"><div class="num" id="sumQty">0</div><div class="lbl">יחידות · <span id="sumOrders">0</span> מכירות</div></div>
+      </div>
+
+      <h2>לפי מוצר</h2>
+      <div id="reportByProduct"></div>
+    </div>
+
+    <div class="card">
+      <h2>לפי לקוח</h2>
+      <div id="reportByCustomer"></div>
+    </div>
+  </section>
+
+  <!-- INVENTORY VIEW -->
+  <section class="view" id="view-inv">
+    <div class="card">
+      <h2>הוספת מלאי</h2>
+      <label>מוצר</label>
+      <input type="text" id="invProduct" list="productList" placeholder="שם המוצר">
+
+      <div class="row2">
+        <div>
+          <label>כמות להוספה</label>
+          <input type="number" id="invQty" min="0" step="1" placeholder="0" inputmode="numeric">
+        </div>
+        <div>
+          <label>מחיר קנייה ליחידה (₪)</label>
+          <input type="number" id="invCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
+        </div>
+      </div>
+      <button class="btn-primary" onclick="restockProduct()">הוסף למלאי</button>
+    </div>
+
+    <div class="card" id="lowStockCard" style="display:none;background:linear-gradient(135deg,#C98A2C,#5C3A10);border:none;">
+      <h2 style="color:#fff;display:flex;align-items:center;gap:6px">⚠️ מלאי נמוך</h2>
+      <div id="lowStockList"></div>
+    </div>
+
+    <div class="card">
+      <h2>מצב מלאי נוכחי</h2>
+      <div id="stockList"></div>
+    </div>
+  </section>
+
+  <!-- GROWTH VIEW -->
+  <section class="view" id="view-growth">
+    <div class="card">
+      <h2>📅 השוואה שבועית</h2>
+      <div id="weekSummary"></div>
+    </div>
+
+    <div class="card">
+      <h2>📈 רווח לפי שבוע (4 שבועות אחרונים)</h2>
+      <div id="weekHistory"></div>
+    </div>
+
+    <div class="card">
+      <h2>🏙️ מכירות לפי עיר</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">השבוע הנוכחי לעומת השבוע שעבר</div>
+      <div id="cityCompareList"></div>
+    </div>
+
+    <div class="card">
+      <h2>📦 השוואה שבועית לפי מוצר</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">השבוע הנוכחי לעומת השבוע שעבר</div>
+      <div id="weekCompareList"></div>
+    </div>
+
+    <div class="card">
+      <h2>🗓️ השוואה חודשית</h2>
+      <div id="monthCompare"></div>
+    </div>
+
+    <div class="card">
+      <h2>🧮 תחזית — מה יקרה אם...?</h2>
+      <div id="baselineInfo" style="font-size:12.5px;color:var(--muted);margin-bottom:14px;"></div>
+
+      <label>כמה יחידות נוספות תרצה למכור בשבוע?</label>
+      <input type="number" id="growUnitsWeek" value="0" step="1" inputmode="numeric">
+      <div class="total-preview" style="margin-top:8px"><span>רווח נוסף בשבוע</span><span id="projWeekDelta">₪0</span></div>
+
+      <label>כמה יחידות נוספות תרצה למכור בחודש?</label>
+      <input type="number" id="growUnits" value="0" step="5" inputmode="numeric">
+
+      <label>כמה להעלות את המחיר ליחידה (₪)</label>
+      <input type="number" id="growPriceAdd" value="0" step="0.5" inputmode="decimal">
+
+      <div class="total-preview two-line" style="margin-top:16px">
+        <div class="line"><span>הכנסה חודשית צפויה</span><span id="projRevenue">₪0</span></div>
+        <div class="line muted"><span>עלות חודשית צפויה</span><span id="projCost">₪0</span></div>
+        <div class="line profit"><span>רווח חודשי צפוי</span><span id="projProfit">₪0</span></div>
+        <div class="line" style="border-top:1px dashed var(--line);padding-top:8px;margin-top:4px">
+          <span>כמה יותר תרוויח</span><span id="projDelta">₪0</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<div class="tabbar">
+  <button class="tab-btn active" data-view="add" onclick="switchTab('add')">
+    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+    הוספה
+  </button>
+  <button class="tab-btn" data-view="cal" onclick="switchTab('cal')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    לוח שנה
+  </button>
+  <button class="tab-btn" data-view="reports" onclick="switchTab('reports')" style="position:relative">
+    <span id="reportsBadge" style="display:none;position:absolute;top:2px;right:28%;width:9px;height:9px;border-radius:50%;background:var(--red);border:1.5px solid var(--paper-2)"></span>
+    <svg viewBox="0 0 24 24"><path d="M4 20V10M12 20V4M20 20v-7" stroke-linecap="round"/></svg>
+    דוחות
+  </button>
+  <button class="tab-btn" data-view="inv" onclick="switchTab('inv')" style="position:relative">
+    <span id="invBadge" style="display:none;position:absolute;top:2px;right:28%;width:9px;height:9px;border-radius:50%;background:var(--red);border:1.5px solid var(--paper-2)"></span>
+    <svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7M12 11v10" stroke-linecap="round"/></svg>
+    מלאי
+  </button>
+  <button class="tab-btn" data-view="growth" onclick="switchTab('growth')">
+    <svg viewBox="0 0 24 24"><path d="M4 16l5-6 4 4 7-9" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 5h6v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    צמיחה
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- Storage ---------- */
+const STORE_KEY = 'sales_ledger_v1';
+function loadSales(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function saveSales(arr){ localStorage.setItem(STORE_KEY, JSON.stringify(arr)); }
+let sales = loadSales();
+
+const INV_KEY = 'inventory_v1';
+function loadInventory(){
+  try{ return JSON.parse(localStorage.getItem(INV_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function saveInventory(){ localStorage.setItem(INV_KEY, JSON.stringify(inventory)); }
+let inventory = loadInventory(); // { productName: { stock, threshold, lastCost } }
+
+function adjustStock(product, delta){
+  if(!product) return;
+  if(!inventory[product]) inventory[product] = {stock:0, threshold:5, lastCost:0};
+  inventory[product].stock += delta;
+  saveInventory();
+}
+
+/* ---------- Helpers ---------- */
+function localISO(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function todayISO(){ return localISO(new Date()); }
+function fmtMoney(n){ return '₪' + Number(n).toLocaleString('he-IL', {maximumFractionDigits:2}); }
+function fmtDateHe(iso){
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('he-IL', {day:'numeric', month:'long', year:'numeric'});
+}
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* week start = Sunday, ISO-ish week key by that Sunday's date */
+function getWeekRange(iso){
+  const d = new Date(iso+'T00:00:00');
+  const day = d.getDay(); // 0=Sunday
+  const start = new Date(d); start.setDate(d.getDate()-day);
+  const end = new Date(start); end.setDate(start.getDate()+6);
+  return {start: localISO(start), end: localISO(end)};
+}
+// k=0 -> this week (Sun-Sat), k=1 -> last week, etc.
+function weekRangeBack(k){
+  return getWeekRange(localISO(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()-7*k)));
+}
+function weekStats(k){
+  const r = weekRangeBack(k);
+  const list = sales.filter(s=>s.date>=r.start && s.date<=r.end);
+  const units = list.reduce((a,s)=>a+s.qty,0);
+  const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
+  const profit = list.reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+  return {units, revenue, profit, start:r.start, end:r.end};
+}
+
+document.getElementById('todayLabel').textContent = fmtDateHe(todayISO());
+document.getElementById('saleDate').value = todayISO();
+document.getElementById('reportDate').value = todayISO();
+
+if(localStorage.getItem('hideInstallTip')==='1'){
+  document.getElementById('installTip').style.display='none';
+}
+function dismissTip(){
+  localStorage.setItem('hideInstallTip','1');
+  document.getElementById('installTip').style.display='none';
+}
+
+/* ---------- Tabs ---------- */
+function switchTab(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  if(name==='cal') renderCalendar();
+  if(name==='reports') renderReport();
+  if(name==='inv') renderInventory();
+  if(name==='growth') renderGrowth();
+}
+
+/* ---------- Add sale ---------- */
+function refreshDatalists(){
+  const products = [...new Set(sales.map(s=>s.product))];
+  const customers = [...new Set(sales.map(s=>s.customer))];
+  document.getElementById('productList').innerHTML = products.map(p=>`<option value="${p}">`).join('');
+  document.getElementById('customerList').innerHTML = customers.map(c=>`<option value="${c}">`).join('');
+}
+refreshDatalists();
+
+function getCustomerPhone(customerName){
+  // most recent sale for this customer that has a phone on record
+  const matches = sales.filter(s=>s.customer===customerName && s.phone).sort((a,b)=>a.date<b.date?1:-1);
+  return matches.length ? matches[0].phone : '';
+}
+function waLink(phone, message){
+  const digits = (phone||'').replace(/[^0-9]/g,'');
+  const intl = digits.startsWith('0') ? '972'+digits.slice(1) : digits;
+  return `https://wa.me/${intl}?text=${encodeURIComponent(message)}`;
+}
+document.getElementById('saleCustomer').addEventListener('change', function(){
+  if(editingSaleId) return;
+  const phoneField = document.getElementById('salePhone');
+  if(!phoneField.value){
+    const known = getCustomerPhone(this.value.trim());
+    if(known) phoneField.value = known;
+  }
+});
+document.getElementById('saleProduct').addEventListener('change', function(){
+  if(editingSaleId) return;
+  const costField = document.getElementById('saleCost');
+  const inv = inventory[this.value.trim()];
+  if(!costField.value && inv && inv.lastCost){
+    costField.value = inv.lastCost;
+    updateTotalPreview();
+  }
+});
+
+function updateTotalPreview(){
+  const q = parseFloat(document.getElementById('saleQty').value)||0;
+  const p = parseFloat(document.getElementById('salePrice').value)||0;
+  const c = parseFloat(document.getElementById('saleCost').value)||0;
+  document.getElementById('totalPreview').textContent = fmtMoney(q*p);
+  document.getElementById('costPreview').textContent = fmtMoney(q*c);
+  document.getElementById('profitPreview').textContent = fmtMoney(q*p - q*c);
+}
+document.getElementById('saleQty').addEventListener('input', updateTotalPreview);
+document.getElementById('salePrice').addEventListener('input', updateTotalPreview);
+document.getElementById('saleCost').addEventListener('input', updateTotalPreview);
+
+let editingSaleId = null;
+
+function startEdit(id){
+  const s = sales.find(x=>x.id===id);
+  if(!s) return;
+  editingSaleId = id;
+  document.getElementById('saleDate').value = s.date;
+  document.getElementById('saleProduct').value = s.product;
+  document.getElementById('saleCustomer').value = s.customer;
+  document.getElementById('saleQty').value = s.qty;
+  document.getElementById('salePrice').value = s.price;
+  document.getElementById('saleCost').value = s.cost || '';
+  document.getElementById('salePhone').value = s.phone || '';
+  document.getElementById('saleUnpaid').checked = (s.paid === false);
+  document.getElementById('saleCity').value = s.city || '';
+  updateTotalPreview();
+
+  document.getElementById('editBanner').style.display = 'flex';
+  document.getElementById('formTitle').textContent = 'עריכת מכירה';
+  document.getElementById('saveBtn').textContent = 'עדכון מכירה';
+  switchTab('add');
+}
+
+function cancelEdit(){
+  editingSaleId = null;
+  document.getElementById('editBanner').style.display = 'none';
+  document.getElementById('formTitle').textContent = 'מכירה חדשה';
+  document.getElementById('saveBtn').textContent = 'שמור מכירה';
+  document.getElementById('saleProduct').value='';
+  document.getElementById('saleCustomer').value='';
+  document.getElementById('saleQty').value='';
+  document.getElementById('salePrice').value='';
+  document.getElementById('saleCost').value='';
+  document.getElementById('salePhone').value='';
+  document.getElementById('saleUnpaid').checked = false;
+  document.getElementById('saleCity').value = '';
+  document.getElementById('saleDate').value = todayISO();
+  updateTotalPreview();
+}
+
+function addSale(){
+  const date = document.getElementById('saleDate').value || todayISO();
+  const product = document.getElementById('saleProduct').value.trim();
+  const customer = document.getElementById('saleCustomer').value.trim();
+  const qty = parseFloat(document.getElementById('saleQty').value);
+  const price = parseFloat(document.getElementById('salePrice').value);
+  const costRaw = document.getElementById('saleCost').value;
+  const cost = costRaw==='' ? 0 : parseFloat(costRaw);
+  const phone = document.getElementById('salePhone').value.trim();
+  const paid = !document.getElementById('saleUnpaid').checked;
+  const city = document.getElementById('saleCity').value.trim();
+
+  if(!product){ toast('נא להזין שם מוצר'); return; }
+  if(!customer){ toast('נא להזין שם לקוח'); return; }
+  if(!qty || qty<=0){ toast('נא להזין כמות תקינה'); return; }
+  if(isNaN(price) || price<0){ toast('נא להזין מחיר תקין'); return; }
+  if(isNaN(cost) || cost<0){ toast('נא להזין מחיר קנייה תקין'); return; }
+
+  if(editingSaleId){
+    const idx = sales.findIndex(x=>x.id===editingSaleId);
+    if(idx>-1){
+      const old = sales[idx];
+      adjustStock(old.product, old.qty);   // give back old stock
+      adjustStock(product, -qty);          // take new stock
+      sales[idx] = {...old, date, product, customer, qty, price, cost, phone, paid, city};
+    }
+    saveSales(sales);
+    refreshDatalists();
+    toast('המכירה עודכנה ✓');
+    cancelEdit();
+    renderCalendar();
+    renderRegulars();
+    renderLiveWeek();
+    refreshCityList();
+    return;
+  }
+
+  sales.push({id:uid(), date, product, customer, qty, price, cost, phone, paid, city});
+  saveSales(sales);
+  adjustStock(product, -qty);
+  if(cost) { inventory[product] = inventory[product]||{stock:0,threshold:5,lastCost:0}; inventory[product].lastCost = cost; saveInventory(); }
+  refreshDatalists();
+
+  document.getElementById('saleProduct').value='';
+  document.getElementById('saleCustomer').value='';
+  document.getElementById('saleQty').value='';
+  document.getElementById('salePrice').value='';
+  document.getElementById('saleCost').value='';
+  document.getElementById('salePhone').value='';
+  document.getElementById('saleUnpaid').checked = false;
+  document.getElementById('saleCity').value = '';
+  updateTotalPreview();
+  renderRegulars();
+  renderLiveWeek();
+  refreshCityList();
+
+  toast('המכירה נשמרה ✓');
+}
+
+function markPaid(id){
+  const s = sales.find(x=>x.id===id);
+  if(!s) return;
+  s.paid = true;
+  saveSales(sales);
+  renderDayPanel();
+  renderReport();
+}
+
+function markCustomerPaid(customerName){
+  sales.forEach(s=>{ if(s.customer===customerName && s.paid===false) s.paid = true; });
+  saveSales(sales);
+  renderReport();
+  renderDayPanel();
+}
+
+/* ---------- Calendar ---------- */
+let calViewDate = new Date();
+let selectedDay = todayISO();
+
+function changeMonth(delta){
+  calViewDate.setMonth(calViewDate.getMonth() - delta); // RTL nav buttons: › goes back visually, keep intuitive
+  renderCalendar();
+}
+
+function salesForDay(iso){ return sales.filter(s=>s.date===iso); }
+
+function renderCalendar(){
+  const y = calViewDate.getFullYear(), m = calViewDate.getMonth();
+  document.getElementById('calTitle').textContent =
+    calViewDate.toLocaleDateString('he-IL', {month:'long', year:'numeric'});
+
+  const first = new Date(y,m,1);
+  const startOffset = first.getDay(); // 0=Sunday
+  const daysInMonth = new Date(y,m+1,0).getDate();
+
+  const dowNames = ['א','ב','ג','ד','ה','ו','ש'];
+  let html = dowNames.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+
+  for(let i=0;i<startOffset;i++) html += `<div class="cal-day empty"></div>`;
+
+  for(let day=1; day<=daysInMonth; day++){
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const daySales = salesForDay(iso);
+    let cls = 'cal-day';
+    if(iso===todayISO()) cls += ' today';
+    if(iso===selectedDay) cls += ' selected';
+    if(daySales.length) cls += ' has-sales';
+    html += `<button class="${cls}" onclick="selectDay('${iso}')">${day}${daySales.length?'<span class="dot"></span>':''}</button>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+  renderDayPanel();
+}
+
+function selectDay(iso){
+  selectedDay = iso;
+  renderCalendar();
+}
+
+function renderDayPanel(){
+  const daySales = salesForDay(selectedDay);
+  document.getElementById('dayPanelTitle').textContent = fmtDateHe(selectedDay);
+  const total = daySales.reduce((a,s)=>a+s.qty*s.price,0);
+  const profit = daySales.reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+  document.getElementById('dayPanelTotal').textContent = daySales.length
+    ? `${fmtMoney(total)} · רווח ${fmtMoney(profit)}` : '';
+
+  if(!daySales.length){
+    document.getElementById('dayPanelList').innerHTML = `<div class="empty-state">אין מכירות ביום זה</div>`;
+    return;
+  }
+  document.getElementById('dayPanelList').innerHTML = daySales.map(s=>{
+    const c = s.cost||0;
+    const lineProfit = s.qty*(s.price-c);
+    return `
+    <div class="sale-row">
+      <div>
+        <div class="sale-main"><b>${s.product}</b> · ${s.customer}</div>
+        <div class="sale-sub">${s.qty} יח׳ × ${fmtMoney(s.price)}${c ? ` (עלות ${fmtMoney(c)})` : ''}</div>
+        ${c ? `<div class="report-profit">רווח: ${fmtMoney(lineProfit)}</div>` : ''}
+        ${s.paid===false ? `<button class="debt-tag" onclick="markPaid('${s.id}')">💳 בהקפה — לחץ לסימון כשולם</button>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:2px">
+        <span class="sale-amt">${fmtMoney(s.qty*s.price)}</span>
+        <button class="del-btn" style="color:var(--accent-dark);font-size:15px" onclick="startEdit('${s.id}')">✎</button>
+        <button class="del-btn" onclick="deleteSale('${s.id}')">✕</button>
+      </div>
+    </div>
+  `;}).join('');
+}
+
+function deleteSale(id){
+  const s = sales.find(x=>x.id===id);
+  if(s) adjustStock(s.product, s.qty);
+  sales = sales.filter(x=>x.id!==id);
+  saveSales(sales);
+  renderCalendar();
+  renderReport();
+}
+
+function goAddForSelectedDay(){
+  document.getElementById('saleDate').value = selectedDay;
+  switchTab('add');
+}
+
+/* ---------- Reports ---------- */
+let reportPeriod = 'day';
+document.getElementById('reportSeg').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  reportPeriod = btn.dataset.p;
+  document.querySelectorAll('#reportSeg button').forEach(b=>b.classList.toggle('active', b===btn));
+  renderReport();
+});
+document.getElementById('reportDate').addEventListener('change', renderReport);
+
+function salesInPeriod(){
+  const refDate = document.getElementById('reportDate').value || todayISO();
+  if(reportPeriod==='day'){
+    return sales.filter(s=>s.date===refDate);
+  }
+  if(reportPeriod==='week'){
+    const {start,end} = getWeekRange(refDate);
+    return sales.filter(s=>s.date>=start && s.date<=end);
+  }
+  // month
+  const ym = refDate.slice(0,7);
+  return sales.filter(s=>s.date.slice(0,7)===ym);
+}
+
+const MIN_STREAK_WEEKS = 3;
+
+function computeRegulars(){
+  if(!sales.length) return [];
+
+  // map: weekStartISO -> Set(customer)
+  const weekMap = {};
+  let minDate = sales[0].date, maxDate = sales[0].date;
+  sales.forEach(s=>{
+    if(s.date < minDate) minDate = s.date;
+    if(s.date > maxDate) maxDate = s.date;
+    const wk = getWeekRange(s.date).start;
+    if(!weekMap[wk]) weekMap[wk] = new Set();
+    weekMap[wk].add(s.customer);
+  });
+
+  // build descending list of consecutive week-start keys from the latest week with data back to the earliest
+  const latestWeekStart = getWeekRange(maxDate).start;
+  const earliestWeekStart = getWeekRange(minDate).start;
+  const weekKeys = [];
+  let cursor = new Date(latestWeekStart+'T00:00:00');
+  const earliestD = new Date(earliestWeekStart+'T00:00:00');
+  while(cursor >= earliestD){
+    weekKeys.push(localISO(cursor));
+    cursor.setDate(cursor.getDate()-7);
+  }
+
+  const customers = [...new Set(sales.map(s=>s.customer))];
+  const regulars = [];
+  customers.forEach(cust=>{
+    let streak = 0;
+    for(const wk of weekKeys){
+      if(weekMap[wk] && weekMap[wk].has(cust)) streak++;
+      else break;
+    }
+    if(streak >= MIN_STREAK_WEEKS) regulars.push({customer:cust, streak});
+  });
+  regulars.sort((a,b)=>b.streak-a.streak);
+  return regulars;
+}
+
+const CHURN_MIN_DAYS = 21;   // ~3 weeks of silence triggers the alert
+const CHURN_MAX_DAYS = 90;   // beyond this, stop surfacing (too old / likely gone for good)
+const CHURN_MIN_ORDERS = 2;  // needs at least 2 past orders to count as "used to order"
+
+function computeChurning(){
+  if(!sales.length) return [];
+  const today = new Date(todayISO()+'T00:00:00');
+  const byCustomer = {};
+  sales.forEach(s=>{
+    byCustomer[s.customer] = byCustomer[s.customer] || {count:0, lastDate:s.date};
+    byCustomer[s.customer].count++;
+    if(s.date > byCustomer[s.customer].lastDate) byCustomer[s.customer].lastDate = s.date;
+  });
+  const churning = [];
+  Object.entries(byCustomer).forEach(([customer,d])=>{
+    const last = new Date(d.lastDate+'T00:00:00');
+    const daysSince = Math.round((today-last)/86400000);
+    if(d.count >= CHURN_MIN_ORDERS && daysSince >= CHURN_MIN_DAYS && daysSince <= CHURN_MAX_DAYS){
+      churning.push({customer, daysSince, lastDate:d.lastDate});
+    }
+  });
+  churning.sort((a,b)=>b.daysSince-a.daysSince);
+  return churning;
+}
+
+function waButtonHtml(customer, message){
+  const phone = getCustomerPhone(customer);
+  return phone
+    ? `<a class="wa-btn" href="${waLink(phone,message)}" target="_blank" rel="noopener">💬 וואטסאפ</a>`
+    : `<span class="no-phone-hint">אין טלפון שמור</span>`;
+}
+
+function renderRegulars(){
+  const regulars = computeRegulars();
+  const churning = computeChurning();
+  document.getElementById('reportsBadge').style.display = (regulars.length || churning.length) ? 'block' : 'none';
+
+  const regCard = document.getElementById('regularsCard');
+  if(!regulars.length){ regCard.style.display='none'; }
+  else{
+    regCard.style.display='block';
+    document.getElementById('regularsList').innerHTML = regulars.map(r=>`
+      <div class="regular-item">
+        <div>
+          <div class="rname">${r.customer}</div>
+          <div class="rsub">קונה כל שבוע ברציפות — כדאי להציע מנוי</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div class="rstreak">${r.streak} שבועות</div>
+          ${waButtonHtml(r.customer, `היי ${r.customer}! שמתי לב שאת/ה מזמין/ה אצלי כל שבוע — רציתי להציע לך לעבור למנוי קבוע, יצא לך משתלם יותר 🙂`)}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const churnCard = document.getElementById('churnCard');
+  if(!churning.length){ churnCard.style.display='none'; }
+  else{
+    churnCard.style.display='block';
+    document.getElementById('churnList').innerHTML = churning.map(c=>`
+      <div class="regular-item">
+        <div>
+          <div class="rname">${c.customer}</div>
+          <div class="rsub">לא הזמין/ה כבר ${c.daysSince} ימים (מאז ${fmtDateHe(c.lastDate)})</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          ${waButtonHtml(c.customer, `היי ${c.customer}! מזמן לא התראינו — רק רציתי להזכיר שאני כאן אם תרצה/י להזמין 🙂`)}
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+function renderDebts(){
+  const unpaid = sales.filter(s=>s.paid===false);
+  const card = document.getElementById('debtsCard');
+  if(!unpaid.length){ card.style.display='none'; return; }
+  card.style.display='block';
+
+  const byCustomer = {};
+  unpaid.forEach(s=>{
+    byCustomer[s.customer] = (byCustomer[s.customer]||0) + s.qty*s.price;
+  });
+  const rows = Object.entries(byCustomer).sort((a,b)=>b[1]-a[1]);
+  document.getElementById('debtsList').innerHTML = rows.map(([name,amt])=>`
+    <div class="debt-item">
+      <div>
+        <div class="report-name">${name}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="debt-amt">${fmtMoney(amt)}</span>
+        <button class="btn-secondary" style="padding:5px 10px;font-size:12px" onclick="markCustomerPaid('${name.replace(/'/g,"\\'")}')">✓ סמן כשולם</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderReport(){
+  renderRegulars();
+  renderDebts();
+  const list = salesInPeriod();
+  const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
+  const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
+  const profit = revenue - cost;
+  const qty = list.reduce((a,s)=>a+s.qty,0);
+  document.getElementById('sumRevenue').textContent = fmtMoney(revenue);
+  document.getElementById('sumCost').textContent = fmtMoney(cost);
+  document.getElementById('sumProfit').textContent = fmtMoney(profit);
+  document.getElementById('sumQty').textContent = qty.toLocaleString('he-IL');
+  document.getElementById('sumOrders').textContent = list.length;
+
+  const byProduct = {};
+  list.forEach(s=>{
+    byProduct[s.product] = byProduct[s.product] || {qty:0, revenue:0, cost:0, hasCost:false};
+    byProduct[s.product].qty += s.qty;
+    byProduct[s.product].revenue += s.qty*s.price;
+    byProduct[s.product].cost += s.qty*(s.cost||0);
+    if(s.cost) byProduct[s.product].hasCost = true;
+  });
+  const productRows = Object.entries(byProduct).sort((a,b)=>b[1].revenue-a[1].revenue);
+  document.getElementById('reportByProduct').innerHTML = productRows.length ? productRows.map(([name,d])=>`
+    <div class="report-item">
+      <div>
+        <div class="report-name">${name}</div>
+        <div class="report-sub">${d.qty} יחידות נמכרו</div>
+        ${d.hasCost
+          ? `<div class="report-profit">רווח: ${fmtMoney(d.revenue-d.cost)}</div>`
+          : `<div class="report-sub" style="color:#B08A3E">לא הוזן מחיר קנייה</div>`}
+      </div>
+      <div class="report-val">${fmtMoney(d.revenue)}</div>
+    </div>
+  `).join('') : `<div class="empty-state">אין נתונים לתקופה זו</div>`;
+
+  const byCustomer = {};
+  list.forEach(s=>{
+    byCustomer[s.customer] = byCustomer[s.customer] || {qty:0, revenue:0, cost:0, hasCost:false};
+    byCustomer[s.customer].qty += s.qty;
+    byCustomer[s.customer].revenue += s.qty*s.price;
+    byCustomer[s.customer].cost += s.qty*(s.cost||0);
+    if(s.cost) byCustomer[s.customer].hasCost = true;
+  });
+  const customerRows = Object.entries(byCustomer).sort((a,b)=>b[1].revenue-a[1].revenue);
+  document.getElementById('reportByCustomer').innerHTML = customerRows.length ? customerRows.map(([name,d])=>`
+    <div class="report-item">
+      <div>
+        <div class="report-name">${name}</div>
+        <div class="report-sub">${d.qty} יחידות</div>
+        ${d.hasCost
+          ? `<div class="report-profit">רווח: ${fmtMoney(d.revenue-d.cost)}</div>`
+          : `<div class="report-sub" style="color:#B08A3E">לא הוזן מחיר קנייה</div>`}
+      </div>
+      <div class="report-val">${fmtMoney(d.revenue)}</div>
+    </div>
+  `).join('') : `<div class="empty-state">אין נתונים לתקופה זו</div>`;
+}
+
+/* ---------- Inventory ---------- */
+function restockProduct(){
+  const product = document.getElementById('invProduct').value.trim();
+  const qty = parseFloat(document.getElementById('invQty').value);
+  const costRaw = document.getElementById('invCost').value;
+  const cost = costRaw==='' ? 0 : parseFloat(costRaw);
+
+  if(!product){ toast('נא להזין שם מוצר'); return; }
+  if(!qty || qty<=0){ toast('נא להזין כמות תקינה'); return; }
+  if(isNaN(cost) || cost<0){ toast('נא להזין מחיר תקין'); return; }
+
+  adjustStock(product, qty);
+  if(cost) inventory[product].lastCost = cost;
+  saveInventory();
+
+  document.getElementById('invProduct').value='';
+  document.getElementById('invQty').value='';
+  document.getElementById('invCost').value='';
+  refreshDatalists();
+  renderInventory();
+  toast('המלאי עודכן ✓');
+}
+
+function setThreshold(product, val){
+  const n = parseFloat(val);
+  if(isNaN(n) || n<0) return;
+  if(!inventory[product]) inventory[product] = {stock:0, threshold:5, lastCost:0};
+  inventory[product].threshold = n;
+  saveInventory();
+  renderInventory();
+}
+
+function renderInventory(){
+  // make sure every product that ever appeared in a sale has an inventory row (stock may be 0 or negative)
+  const allProducts = new Set([...Object.keys(inventory), ...sales.map(s=>s.product)]);
+  allProducts.forEach(p=>{ if(!inventory[p]) inventory[p] = {stock:0, threshold:5, lastCost:0}; });
+
+  const rows = Object.entries(inventory).sort((a,b)=>a[1].stock-b[1].stock);
+
+  const low = rows.filter(([name,d])=>d.stock <= d.threshold);
+  document.getElementById('invBadge').style.display = low.length ? 'block' : 'none';
+  const lowCard = document.getElementById('lowStockCard');
+  if(!low.length){ lowCard.style.display='none'; }
+  else{
+    lowCard.style.display='block';
+    document.getElementById('lowStockList').innerHTML = low.map(([name,d])=>`
+      <div class="regular-item">
+        <div>
+          <div class="rname">${name}</div>
+          <div class="rsub">${d.stock<=0 ? 'אין מלאי כלל!' : 'נותרו ' + d.stock + ' יחידות בלבד'}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('stockList').innerHTML = rows.length ? rows.map(([name,d])=>{
+    const cls = d.stock<=0 ? 'out' : (d.stock<=d.threshold ? 'low' : '');
+    return `
+    <div class="stock-item">
+      <div>
+        <div class="stock-name">${name}</div>
+        <div class="stock-thresh">
+          <label>התראה מתחת ל-</label>
+          <input type="number" min="0" value="${d.threshold}" onchange="setThreshold('${name.replace(/'/g,"\\'")}', this.value)">
+        </div>
+      </div>
+      <div class="stock-qty ${cls}">${d.stock}</div>
+    </div>
+  `;}).join('') : `<div class="empty-state">אין עדיין נתוני מלאי</div>`;
+}
+
+/* ---------- Growth & Profitability (plain numbers, no percentages) ---------- */
+function monthKey(offset){
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-offset);
+  return localISO(d).slice(0,7);
+}
+function monthLabel(offset){
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-offset);
+  return d.toLocaleDateString('he-IL', {month:'long', year:'numeric'});
+}
+function unitsByProductInRange(startISO, endISO){
+  const map = {};
+  sales.forEach(s=>{
+    if(s.date>=startISO && s.date<=endISO) map[s.product] = (map[s.product]||0) + s.qty;
+  });
+  return map;
+}
+function diffBadge(diff){
+  if(diff>0) return `<span class="compare-diff up">+${diff} ⬆️</span>`;
+  if(diff<0) return `<span class="compare-diff down">${diff} ⬇️</span>`;
+  return `<span class="compare-diff flat">ללא שינוי</span>`;
+}
+
+function baseline30(){
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-29);
+  const cutoffISO = localISO(cutoff);
+  const list = sales.filter(s=>s.date>=cutoffISO);
+  const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
+  const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
+  const units = list.reduce((a,s)=>a+s.qty,0);
+  return {revenue, cost, profit:revenue-cost, units};
+}
+
+function updateProjection(){
+  const b = baseline30();
+  const el = id=>document.getElementById(id);
+  if(b.units<=0){
+    el('projRevenue').textContent = '—';
+    el('projCost').textContent = '—';
+    el('projProfit').textContent = '—';
+    el('projDelta').textContent = 'אין עדיין מספיק נתוני מכירות (30 יום אחרונים)';
+    return;
+  }
+  const extraUnits = parseFloat(el('growUnits').value)||0;
+  const priceAdd = parseFloat(el('growPriceAdd').value)||0;
+  const avgPrice = b.revenue/b.units;
+  const avgCost = b.cost/b.units;
+  const newUnits = b.units + extraUnits;
+  const newPrice = Math.max(0, avgPrice+priceAdd);
+  const newRevenue = newUnits*newPrice;
+  const newCost = newUnits*avgCost;
+  const newProfit = newRevenue-newCost;
+  const delta = newProfit-b.profit;
+
+  el('projRevenue').textContent = fmtMoney(newRevenue);
+  el('projCost').textContent = fmtMoney(newCost);
+  el('projProfit').textContent = fmtMoney(newProfit);
+  el('projDelta').textContent = (delta>=0?'+':'') + fmtMoney(delta) + ' לחודש';
+  el('projDelta').style.color = delta>=0 ? 'var(--profit)' : 'var(--red)';
+}
+document.getElementById('growUnits').addEventListener('input', updateProjection);
+document.getElementById('growUnitsWeek').addEventListener('input', updateWeekProjection);
+
+function updateWeekProjection(){
+  // average over last 4 full-ish weeks (this week + 3 previous)
+  let units=0, profit=0;
+  for(let k=0;k<4;k++){ const w=weekStats(k); units+=w.units; profit+=w.profit; }
+  const extra = parseFloat(document.getElementById('growUnitsWeek').value)||0;
+  if(units<=0){ document.getElementById('projWeekDelta').textContent='אין עדיין נתונים'; return; }
+  const profitPerUnit = profit/units;
+  const avgUnitsWeek = units/4;
+  const delta = extra*profitPerUnit;
+  const el = document.getElementById('projWeekDelta');
+  el.textContent = (delta>=0?'+':'') + fmtMoney(delta) + ' בשבוע';
+  el.style.color = delta>=0 ? 'var(--profit)' : 'var(--red)';
+}
+document.getElementById('growPriceAdd').addEventListener('input', updateProjection);
+
+function renderGrowth(){
+  renderWeekSummary();
+  renderWeekHistory();
+  renderCityCompare();
+  updateWeekProjection();
+  // --- weekly, per product ---
+  const thisWeek = getWeekRange(todayISO());
+  const lastWeekStart = new Date(thisWeek.start+'T00:00:00'); lastWeekStart.setDate(lastWeekStart.getDate()-7);
+  const lastWeekEnd = new Date(thisWeek.start+'T00:00:00'); lastWeekEnd.setDate(lastWeekEnd.getDate()-1);
+  const lastWeekStartISO = localISO(lastWeekStart);
+  const lastWeekEndISO = localISO(lastWeekEnd);
+
+  const thisWeekUnits = unitsByProductInRange(thisWeek.start, thisWeek.end);
+  const lastWeekUnits = unitsByProductInRange(lastWeekStartISO, lastWeekEndISO);
+  const allProducts = [...new Set([...Object.keys(thisWeekUnits), ...Object.keys(lastWeekUnits)])];
+
+  if(!allProducts.length){
+    document.getElementById('weekCompareList').innerHTML = `<div class="empty-state">אין עדיין מספיק נתונים להשוואה שבועית</div>`;
+  } else {
+    const rows = allProducts.map(p=>{
+      const cur = thisWeekUnits[p]||0, prev = lastWeekUnits[p]||0;
+      return {p, cur, prev, diff: cur-prev};
+    }).sort((a,b)=> (b.cur+b.prev) - (a.cur+a.prev));
+    document.getElementById('weekCompareList').innerHTML = rows.map(r=>`
+      <div class="compare-item">
+        <div>
+          <div class="report-name">${r.p}</div>
+          <div class="compare-nums">השבוע: ${r.cur} יח׳ · שבוע שעבר: ${r.prev} יח׳</div>
+        </div>
+        ${diffBadge(r.diff)}
+      </div>
+    `).join('');
+  }
+
+  // --- monthly, total units + plain money difference ---
+  const m0key = monthKey(0), m1key = monthKey(1);
+  const m0 = sales.filter(s=>s.date.slice(0,7)===m0key);
+  const m1 = sales.filter(s=>s.date.slice(0,7)===m1key);
+  const u0 = m0.reduce((a,s)=>a+s.qty,0), u1 = m1.reduce((a,s)=>a+s.qty,0);
+  const p0 = m0.reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+  const p1 = m1.reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+  const unitsDiff = u0-u1, profitDiff = p0-p1;
+
+  document.getElementById('monthCompare').innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:11px;color:var(--muted)">${monthLabel(1)}</div>
+        <div style="font-weight:700;font-size:16px">${u1} יח׳</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:11px;color:var(--muted)">${monthLabel(0)} (עד כה)</div>
+        <div style="font-weight:700;font-size:16px">${u0} יח׳</div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--paper);border-radius:10px">
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">כמות שמכרת החודש לעומת חודש שעבר</div>
+      <div style="font-size:24px">${diffBadge(unitsDiff)}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:6px">רווח: ${fmtMoney(p1)} ← ${fmtMoney(p0)} (${profitDiff>=0?'+':''}${fmtMoney(profitDiff)})</div>
+    </div>
+  `;
+
+  const b = baseline30();
+  document.getElementById('baselineInfo').textContent = b.units>0
+    ? `מבוסס על 30 הימים האחרונים: ${b.units} יחידות, הכנסה ${fmtMoney(b.revenue)}, רווח ${fmtMoney(b.profit)}`
+    : 'עדיין אין מספיק מכירות ב-30 הימים האחרונים כדי לבנות תחזית — התחזית תתעדכן ככל שתרשום מכירות.';
+  updateProjection();
+}
+
+/* ---------- Weekly + city analytics ---------- */
+function weekDiffHtml(diff, unit){
+  if(diff>0) return `<span class="compare-diff up">+${diff} ${unit} ⬆️</span>`;
+  if(diff<0) return `<span class="compare-diff down">${diff} ${unit} ⬇️</span>`;
+  return `<span class="compare-diff flat">ללא שינוי</span>`;
+}
+function moneyDiffHtml(diff){
+  const sign = diff>0 ? '+' : (diff<0 ? '-' : '');
+  const cls = diff>0 ? 'up' : (diff<0 ? 'down' : 'flat');
+  return `<span class="compare-diff ${cls}">${sign}${fmtMoney(Math.abs(diff))} ${diff>=0?'⬆️':'⬇️'}</span>`;
+}
+
+function renderWeekSummary(){
+  const cur = weekStats(0), prev = weekStats(1);
+  document.getElementById('weekSummary').innerHTML = `
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+      <div style="text-align:center;flex:1">
+        <div style="font-size:11px;color:var(--muted)">שבוע שעבר</div>
+        <div style="font-weight:700;font-size:15px">${prev.units} יח׳</div>
+        <div style="font-size:12px;color:var(--profit)">רווח ${fmtMoney(prev.profit)}</div>
+      </div>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:11px;color:var(--muted)">השבוע (עד כה)</div>
+        <div style="font-weight:700;font-size:15px">${cur.units} יח׳</div>
+        <div style="font-size:12px;color:var(--profit)">רווח ${fmtMoney(cur.profit)}</div>
+      </div>
+    </div>
+    <div style="text-align:center;padding:12px;background:var(--paper);border-radius:10px">
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">כמה התקדמת לעומת השבוע שעבר</div>
+      <div style="font-size:15px;margin-bottom:4px">יחידות: ${weekDiffHtml(cur.units-prev.units,'יח׳')}</div>
+      <div style="font-size:15px">רווח: ${moneyDiffHtml(cur.profit-prev.profit)}</div>
+    </div>`;
+}
+
+function renderWeekHistory(){
+  const rows = [0,1,2,3].map(k=>weekStats(k));
+  const maxProfit = Math.max(1, ...rows.map(r=>Math.abs(r.profit)));
+  const labels = ['השבוע','שבוע שעבר','לפני שבועיים','לפני 3 שבועות'];
+  document.getElementById('weekHistory').innerHTML = rows.map((r,i)=>{
+    const pct = Math.max(4, Math.round(Math.abs(r.profit)/maxProfit*100));
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px">
+          <span>${labels[i]}</span>
+          <b style="color:var(--profit)">${fmtMoney(r.profit)} · ${r.units} יח׳</b>
+        </div>
+        <div style="height:9px;background:var(--paper);border-radius:6px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:6px"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function unitsByCityInRange(startISO, endISO){
+  const map = {};
+  sales.forEach(s=>{
+    if(s.date>=startISO && s.date<=endISO){
+      const c = s.city || 'לא צוין עיר';
+      map[c] = (map[c]||0) + s.qty;
+    }
+  });
+  return map;
+}
+
+function renderCityCompare(){
+  const cur = weekStats(0), prev = weekStats(1);
+  const curMap = unitsByCityInRange(cur.start, cur.end);
+  const prevMap = unitsByCityInRange(prev.start, prev.end);
+  const cities = [...new Set([...Object.keys(curMap), ...Object.keys(prevMap)])];
+  const el = document.getElementById('cityCompareList');
+  if(!cities.length){
+    el.innerHTML = `<div class="empty-state">עדיין אין מכירות עם עיר השבוע או בשבוע שעבר</div>`;
+    return;
+  }
+  el.innerHTML = cities.map(c=>({c, a:curMap[c]||0, b:prevMap[c]||0}))
+    .sort((x,y)=>(y.a+y.b)-(x.a+x.b))
+    .map(r=>`
+      <div class="compare-item">
+        <div>
+          <div class="report-name">${r.c}</div>
+          <div class="compare-nums">השבוע: ${r.a} יח׳ · שבוע שעבר: ${r.b} יח׳</div>
+        </div>
+        ${weekDiffHtml(r.a-r.b,'')}
+      </div>`).join('');
+}
+
+function renderLiveWeek(){
+  const cur = weekStats(0), prev = weekStats(1);
+  const el = document.getElementById('liveWeek');
+  if(!el) return;
+  el.innerHTML = `
+    <div><b>השבוע:</b> ${cur.units} יח׳ · רווח ${fmtMoney(cur.profit)}</div>
+    <div style="margin-top:3px"><b>שבוע שעבר:</b> ${prev.units} יח׳ · רווח ${fmtMoney(prev.profit)}</div>
+    <div style="margin-top:3px">התקדמות: ${weekDiffHtml(cur.units-prev.units,'יח׳')} · ${moneyDiffHtml(cur.profit-prev.profit)} ברווח</div>`;
+}
+
+function refreshCityList(){
+  const cities = [...new Set(sales.map(s=>s.city).filter(Boolean))];
+  document.getElementById('cityList').innerHTML = cities.map(c=>`<option value="${c}">`).join('');
+}
+
+/* init */
+renderCalendar();
+renderReport();
+renderInventory();
+renderLiveWeek();
+refreshCityList();
+</script>
+</body>
+</html>
