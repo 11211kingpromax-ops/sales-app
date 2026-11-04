@@ -325,6 +325,22 @@
 
   <!-- REPORTS VIEW -->
   <section class="view" id="view-reports">
+    <div class="card">
+      <h2>⚙️ גיבוי, ייצוא ונעילה</h2>
+      <button class="btn-secondary" style="width:100%;margin-bottom:8px" onclick="exportBackup()">💾 הורד גיבוי (כל הנתונים)</button>
+      <label style="margin-top:6px">📂 שחזור מקובץ גיבוי</label>
+      <input type="file" id="restoreFile" accept=".json,application/json" onchange="importBackup(this.files[0])">
+      <button class="btn-secondary" style="width:100%;margin-top:10px" onclick="exportCSV()">📊 ייצוא כל המכירות לאקסל (CSV)</button>
+
+      <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+        <div style="font-weight:700;font-size:14px;margin-bottom:6px">🔐 קוד נעילה</div>
+        <div id="pinStatus" style="font-size:12.5px;color:var(--muted);margin-bottom:8px"></div>
+        <label>קוד חדש (4 ספרות)</label>
+        <input type="password" id="pinNew" maxlength="4" inputmode="numeric" placeholder="••••">
+        <button class="btn-primary" style="margin-top:10px" onclick="savePin()">שמור קוד</button>
+        <button class="btn-secondary" id="pinRemoveBtn" style="width:100%;margin-top:8px;display:none" onclick="removePin()">הסר קוד נעילה</button>
+      </div>
+    </div>
     <div class="card" id="regularsCard" style="display:none;background:linear-gradient(135deg,#1F7A5C,#16332C);border:none;">
       <h2 style="color:#fff;display:flex;align-items:center;gap:6px">🔔 לקוחות קבועים — הציעו מנוי!</h2>
       <div id="regularsList"></div>
@@ -333,6 +349,11 @@
     <div class="card" id="churnCard" style="display:none;background:linear-gradient(135deg,#B0473E,#5C241E);border:none;">
       <h2 style="color:#fff;display:flex;align-items:center;gap:6px">😴 הפסיקו להזמין — אולי להתקשר?</h2>
       <div id="churnList"></div>
+    </div>
+
+    <div class="card" id="oldDebtsCard" style="display:none;background:#FBF3E3;border-color:#EAD9AF;">
+      <h2 style="color:#7A5A17">⏰ הקפות ישנות (מעל 7 ימים)</h2>
+      <div id="oldDebtsList"></div>
     </div>
 
     <div class="card" id="debtsCard" style="display:none;">
@@ -368,6 +389,11 @@
   <!-- INVENTORY VIEW -->
   <section class="view" id="view-inv">
     <div class="card">
+      <h2>⏳ כמה ימים יספיק המלאי</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">מחושב לפי קצב המכירות של 4 השבועות האחרונים</div>
+      <div id="stockDays"></div>
+    </div>
+    <div class="card">
       <h2>הוספת מלאי</h2>
       <label>מוצר</label>
       <input type="text" id="invProduct" list="productList" placeholder="שם המוצר">
@@ -398,6 +424,18 @@
 
   <!-- GROWTH VIEW -->
   <section class="view" id="view-growth">
+    <div class="card">
+      <h2>🎯 יעד רווח חודשי</h2>
+      <div id="targetBox"></div>
+      <label>יעד רווח לחודש (₪)</label>
+      <input type="number" id="targetInput" inputmode="decimal" placeholder="לדוגמה: 3000">
+      <button class="btn-primary" onclick="saveTarget()">שמור יעד</button>
+    </div>
+
+    <div class="card">
+      <h2>📊 רווח לפי חודש (6 חודשים)</h2>
+      <div id="monthChart"></div>
+    </div>
     <div class="card">
       <h2>📅 השוואה שבועית</h2>
       <div id="weekSummary"></div>
@@ -475,6 +513,15 @@
     <svg viewBox="0 0 24 24"><path d="M4 16l5-6 4 4 7-9" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 5h6v6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     צמיחה
   </button>
+</div>
+
+<div id="lockScreen" style="display:none;position:fixed;inset:0;z-index:999;background:var(--ink);color:#fff;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px">
+  <div style="font-size:42px">🔒</div>
+  <div style="font-size:18px;font-weight:700">פנקס מכירות נעול</div>
+  <div style="font-size:12.5px;color:#B9C7C1">הזן את הקוד כדי להמשיך</div>
+  <input type="password" id="pinInput" maxlength="4" inputmode="numeric" style="width:170px;padding:12px;font-size:22px;text-align:center;border-radius:10px;border:none;letter-spacing:8px">
+  <div id="pinErr" style="display:none;color:#FFB4A9;font-size:13px">קוד שגוי, נסה שוב</div>
+  <button class="btn-primary" style="width:170px;margin-top:4px" onclick="tryUnlock()">פתח</button>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -561,8 +608,8 @@ function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
   if(name==='cal') renderCalendar();
   if(name==='reports') renderReport();
-  if(name==='inv') renderInventory();
-  if(name==='growth') renderGrowth();
+  if(name==='inv'){ renderInventory(); renderStockDays(); }
+  if(name==='growth'){ renderGrowth(); renderTarget(); renderMonthChart(); }
 }
 
 /* ---------- Add sale ---------- */
@@ -983,6 +1030,7 @@ function renderDebts(){
 function renderReport(){
   renderRegulars();
   renderDebts();
+  renderOldDebts();
   const list = salesInPeriod();
   const revenue = list.reduce((a,s)=>a+s.qty*s.price,0);
   const cost = list.reduce((a,s)=>a+s.qty*(s.cost||0),0);
@@ -1356,12 +1404,203 @@ function refreshCityList(){
   document.getElementById('cityList').innerHTML = cities.map(c=>`<option value="${c}">`).join('');
 }
 
+/* ---------- Extra features: lock, backup, CSV, target, stock days, old debts, monthly chart ---------- */
+const LOCK_KEY = 'pin_hash_v1', UNLOCK_KEY = 'last_unlock_v1', LOCK_MS = 24*60*60*1000, TARGET_KEY = 'monthly_target_v1';
+
+async function sha256(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function needsLock(){
+  if(!localStorage.getItem(LOCK_KEY)) return false;
+  const last = parseInt(localStorage.getItem(UNLOCK_KEY)||'0', 10);
+  return (Date.now() - last) > LOCK_MS;
+}
+function showLock(){
+  document.getElementById('lockScreen').style.display = 'flex';
+  setTimeout(()=>document.getElementById('pinInput').focus(), 50);
+}
+async function tryUnlock(){
+  const input = document.getElementById('pinInput');
+  const ok = (await sha256(input.value.trim())) === localStorage.getItem(LOCK_KEY);
+  input.value = '';
+  if(ok){
+    localStorage.setItem(UNLOCK_KEY, String(Date.now()));
+    document.getElementById('pinErr').style.display = 'none';
+    document.getElementById('lockScreen').style.display = 'none';
+  } else {
+    document.getElementById('pinErr').style.display = 'block';
+  }
+}
+async function savePin(){
+  const v = document.getElementById('pinNew').value.trim();
+  if(!/^\d{4}$/.test(v)){ toast('יש להזין 4 ספרות'); return; }
+  localStorage.setItem(LOCK_KEY, await sha256(v));
+  localStorage.setItem(UNLOCK_KEY, String(Date.now())); // counts as unlocked now
+  document.getElementById('pinNew').value = '';
+  renderLockSettings();
+  toast('הקוד נשמר ✓');
+}
+function removePin(){
+  localStorage.removeItem(LOCK_KEY);
+  localStorage.removeItem(UNLOCK_KEY);
+  renderLockSettings();
+  toast('הקוד הוסר');
+}
+function renderLockSettings(){
+  const has = !!localStorage.getItem(LOCK_KEY);
+  document.getElementById('pinStatus').textContent = has
+    ? 'הקוד פעיל. נדרש להזין אותו פעם ב-24 שעות.'
+    : 'אין קוד. האפליקציה פתוחה ללא נעילה.';
+  document.getElementById('pinRemoveBtn').style.display = has ? 'block' : 'none';
+}
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden && needsLock()) showLock(); });
+
+function download(name, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function exportBackup(){
+  const data = {version:1, exportedAt:new Date().toISOString(), sales, inventory, target: localStorage.getItem(TARGET_KEY)};
+  download(`פנקס-גיבוי-${todayISO()}.json`, JSON.stringify(data), 'application/json');
+  toast('הגיבוי הורד ✓');
+}
+function importBackup(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const d = JSON.parse(reader.result);
+      if(!Array.isArray(d.sales)) throw new Error('bad');
+      if(!confirm('לשחזר מהגיבוי? הנתונים הנוכחיים בטלפון יוחלפו.')) return;
+      sales = d.sales; saveSales(sales);
+      inventory = d.inventory || {}; saveInventory();
+      if(d.target) localStorage.setItem(TARGET_KEY, d.target);
+      location.reload();
+    }catch(e){ toast('קובץ הגיבוי לא תקין'); }
+  };
+  reader.readAsText(file);
+}
+function exportCSV(){
+  const head = ['תאריך','מוצר','לקוח','עיר','טלפון','כמות','מחיר מכירה','מחיר קנייה','סה״כ מכירה','רווח','שולם'];
+  const rows = sales.map(s=>[s.date, s.product, s.customer, s.city||'', s.phone||'', s.qty, s.price, s.cost||0,
+    s.qty*s.price, s.qty*(s.price-(s.cost||0)), s.paid===false ? 'לא' : 'כן']);
+  const esc = v=>`"${String(v).replace(/"/g,'""')}"`;
+  const csv = '\uFEFF' + [head,...rows].map(r=>r.map(esc).join(',')).join('\r\n');
+  download(`מכירות-${todayISO()}.csv`, csv, 'text/csv;charset=utf-8');
+}
+
+function monthProfit(k){
+  const key = monthKey(k);
+  return sales.filter(s=>s.date.slice(0,7)===key).reduce((a,s)=>a+s.qty*(s.price-(s.cost||0)),0);
+}
+function monthShort(k){
+  const d = new Date(); d.setDate(1); d.setMonth(d.getMonth()-k);
+  return d.toLocaleDateString('he-IL', {month:'short'});
+}
+function renderTarget(){
+  const t = parseFloat(localStorage.getItem(TARGET_KEY)||'0');
+  const box = document.getElementById('targetBox');
+  if(!t){ box.innerHTML = `<div class="empty-state">עדיין לא הוגדר יעד חודשי</div>`; return; }
+  const p = monthProfit(0);
+  const pct = Math.min(100, Math.max(0, Math.round(p/t*100)));
+  const left = Math.max(0, t-p);
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+      <span>רווח החודש: <b>${fmtMoney(p)}</b></span><span>יעד: <b>${fmtMoney(t)}</b></span>
+    </div>
+    <div style="height:14px;background:var(--paper);border-radius:8px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--profit);border-radius:8px"></div>
+    </div>
+    <div style="font-size:12.5px;color:var(--muted);margin-top:6px;margin-bottom:12px">
+      ${pct>=100 ? '🎉 הגעת ליעד החודש!' : `הגעת ל-${pct}% מהיעד, נשארו ${fmtMoney(left)}`}
+    </div>`;
+}
+function saveTarget(){
+  const v = parseFloat(document.getElementById('targetInput').value);
+  if(isNaN(v) || v<=0){ toast('נא להזין יעד תקין'); return; }
+  localStorage.setItem(TARGET_KEY, String(v));
+  document.getElementById('targetInput').value = '';
+  renderTarget();
+  toast('היעד נשמר ✓');
+}
+function renderMonthChart(){
+  const vals = [5,4,3,2,1,0].map(k=>({label:monthShort(k), p:monthProfit(k)}));
+  const max = Math.max(1, ...vals.map(v=>Math.abs(v.p)));
+  document.getElementById('monthChart').innerHTML = vals.map(v=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12.5px">
+      <span style="width:46px">${v.label}</span>
+      <div style="flex:1;height:12px;background:var(--paper);border-radius:6px;overflow:hidden">
+        <div style="height:100%;width:${v.p===0?0:Math.max(4,Math.round(Math.abs(v.p)/max*100))}%;background:${v.p>=0?'var(--accent)':'var(--red)'}"></div>
+      </div>
+      <b style="min-width:72px;text-align:left">${fmtMoney(v.p)}</b>
+    </div>`).join('');
+}
+function renderStockDays(){
+  const cutoff = localISO(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()-27));
+  const units = {};
+  sales.forEach(s=>{ if(s.date>=cutoff) units[s.product] = (units[s.product]||0) + s.qty; });
+  const names = Object.keys(inventory);
+  const row = (name, text)=>`
+    <div class="stock-item"><div class="stock-name">${name}</div><div style="font-size:13px;color:var(--muted)">${text}</div></div>`;
+  document.getElementById('stockDays').innerHTML = names.length ? names.map(n=>{
+    const st = inventory[n].stock;
+    const avg = (units[n]||0)/28;
+    if(st<=0) return row(n, 'אין מלאי');
+    if(avg===0) return row(n, 'אין מכירות ב-4 השבועות האחרונים');
+    return row(n, `יספיק ל-<b style="color:var(--accent-dark)">${Math.floor(st/avg)}</b> ימים`);
+  }).join('') : `<div class="empty-state">אין עדיין נתוני מלאי</div>`;
+}
+function renderOldDebts(){
+  const cutoff = localISO(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()-7));
+  const old = sales.filter(s=>s.paid===false && s.date<cutoff);
+  const card = document.getElementById('oldDebtsCard');
+  if(!old.length){ card.style.display='none'; return; }
+  card.style.display='block';
+  const byCustomer = {};
+  old.forEach(s=>{
+    const c = byCustomer[s.customer] = byCustomer[s.customer] || {amt:0, oldest:s.date};
+    c.amt += s.qty*s.price;
+    if(s.date < c.oldest) c.oldest = s.date;
+  });
+  document.getElementById('oldDebtsList').innerHTML = Object.entries(byCustomer)
+    .sort((a,b)=>b[1].amt-a[1].amt)
+    .map(([name,d])=>{
+      const phone = getCustomerPhone(name);
+      const msg = `היי ${name}, רק מזכיר שנותר חוב של ${fmtMoney(d.amt)} על ההזמנות שלך. אשמח לסידור תשלום 🙂`;
+      const btn = phone
+        ? `<a class="wa-btn" href="${waLink(phone,msg)}" target="_blank" rel="noopener">💬 תזכורת</a>`
+        : `<span class="no-phone-hint" style="color:var(--muted)">אין טלפון שמור</span>`;
+      return `
+        <div class="debt-item">
+          <div>
+            <div class="report-name">${name}</div>
+            <div class="compare-nums">מאז ${fmtDateHe(d.oldest)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="debt-amt">${fmtMoney(d.amt)}</span>${btn}
+          </div>
+        </div>`;
+    }).join('');
+}
+
 /* init */
 renderCalendar();
 renderReport();
 renderInventory();
 renderLiveWeek();
 refreshCityList();
+renderLockSettings();
+renderOldDebts();
+renderStockDays();
+renderTarget();
+renderMonthChart();
+if(needsLock()) showLock();
 </script>
 </body>
 </html>
