@@ -231,6 +231,136 @@
   }
   .toast.show{opacity:1;}
 </style>
+<style>
+/* ===== Modern / futuristic theme (visual only, logic unchanged) ===== */
+:root{
+  --paper:#070b14;
+  --paper-2:rgba(255,255,255,.05);
+  --ink:#e8f1ff;
+  --line:rgba(255,255,255,.10);
+  --accent:#22d3ee;
+  --accent-dark:#67e8f9;
+  --gold:#fbbf24;
+  --red:#fb7185;
+  --profit:#a5b4fc;
+  --muted:#8b9ab5;
+}
+html,body{
+  background:
+    radial-gradient(900px 500px at 10% -10%, rgba(34,211,238,.18), transparent 60%),
+    radial-gradient(800px 600px at 110% 20%, rgba(139,92,246,.20), transparent 60%),
+    var(--paper);
+  background-attachment:fixed;
+  color:var(--ink);
+  font-family:'Rubik',sans-serif;
+}
+.topbar{
+  background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(139,92,246,.18));
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,255,255,.08);
+  color:var(--ink);
+}
+.topbar h1{
+  background:linear-gradient(90deg,#67e8f9,#c4b5fd);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  font-weight:800;letter-spacing:.5px;
+}
+.topbar .date-today{color:var(--muted);}
+.card{
+  background:linear-gradient(145deg,rgba(255,255,255,.08),rgba(255,255,255,.02));
+  border:1px solid rgba(255,255,255,.09);
+  border-radius:20px;
+  box-shadow:0 10px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.card h2{color:var(--accent-dark);letter-spacing:.3px;font-weight:700;}
+label{color:var(--muted);}
+input[type=text],input[type=number],input[type=date],input[type=tel],input[type=password],input[type=file],select{
+  background:rgba(255,255,255,.06);
+  color:var(--ink);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:12px;
+  transition:box-shadow .2s, border-color .2s;
+}
+input:focus,select:focus{
+  outline:none;
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px rgba(34,211,238,.25), 0 0 18px rgba(34,211,238,.25);
+}
+.btn-primary{
+  background:linear-gradient(135deg,#22d3ee,#8b5cf6);
+  color:#050814;
+  font-weight:700;
+  border-radius:14px;
+  box-shadow:0 8px 24px rgba(34,211,238,.25), 0 0 0 1px rgba(255,255,255,.1) inset;
+  transition:transform .15s, box-shadow .2s;
+}
+.btn-primary:active{transform:scale(.98);background:linear-gradient(135deg,#22d3ee,#8b5cf6);}
+.btn-secondary{
+  background:rgba(255,255,255,.06);
+  color:var(--ink);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:12px;
+  backdrop-filter:blur(8px);
+}
+.total-preview{
+  background:rgba(34,211,238,.08);
+  border:1px solid rgba(34,211,238,.18);
+  color:var(--accent-dark);
+  border-radius:14px;
+}
+.tabbar{
+  left:12px;right:12px;bottom:12px;
+  border-radius:24px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(15,23,42,.72);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  box-shadow:0 12px 40px rgba(0,0,0,.45);
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+}
+.tab-btn{color:var(--muted);border-radius:16px;transition:all .2s;}
+.tab-btn svg{stroke:var(--muted);}
+.tab-btn.active{color:#67e8f9;background:rgba(34,211,238,.12);}
+.tab-btn.active svg{stroke:#67e8f9;filter:drop-shadow(0 0 6px rgba(34,211,238,.8));}
+.cal-day{background:rgba(255,255,255,.04);color:var(--ink);border-radius:12px;}
+.cal-day.has-sales{background:rgba(34,211,238,.14);color:#67e8f9;}
+.cal-day.selected{background:linear-gradient(135deg,#22d3ee,#8b5cf6);color:#050814;box-shadow:0 0 16px rgba(34,211,238,.45);}
+.cal-day.today{border-color:var(--gold);}
+.cal-dow{color:var(--muted);}
+.cal-nav-btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:var(--ink);}
+.sale-row,.report-item,.compare-item,.stock-item,.debt-item{border-bottom:1px solid rgba(255,255,255,.07);}
+.sale-amt,.report-val{color:#67e8f9;text-shadow:0 0 12px rgba(34,211,238,.35);}
+.seg{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);}
+.seg button{color:var(--muted);}
+.seg button.active{background:linear-gradient(135deg,#22d3ee,#8b5cf6);color:#050814;}
+.summary-box{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:16px;}
+.summary-box .num{color:#67e8f9;text-shadow:0 0 14px rgba(34,211,238,.3);}
+.summary-box.is-profit .num{color:#c4b5fd;text-shadow:0 0 14px rgba(167,139,250,.4);}
+.compare-diff.up{color:#34d399;}
+.compare-diff.down{color:var(--red);}
+.empty-state{color:var(--muted);}
+.toast{background:rgba(15,23,42,.95);color:#fff;border:1px solid rgba(34,211,238,.35);box-shadow:0 0 24px rgba(34,211,238,.2);border-radius:14px;}
+.install-tip,.debt-tag{background:rgba(251,191,36,.10)!important;border:1px solid rgba(251,191,36,.25)!important;color:#fde68a!important;border-radius:14px;}
+.debt-tag{background:rgba(251,113,133,.12)!important;border-color:rgba(251,113,133,.3)!important;color:#fda4af!important;}
+.debt-amt{color:var(--red);}
+.wa-btn{background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;box-shadow:0 0 14px rgba(37,211,102,.35);}
+.regular-item{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);}
+.rstreak{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#2a1a00;}
+/* inline-styled cards and strips that had light hard-coded colors */
+#liveWeek,[style*="#EEF3EF"]{background:rgba(34,211,238,.08)!important;border:1px solid rgba(34,211,238,.18)!important;color:var(--accent-dark)!important;}
+#editBanner,[style*="#FBF3E3"]{background:rgba(251,191,36,.10)!important;border-color:rgba(251,191,36,.25)!important;color:#fde68a!important;}
+[style*="background:var(--paper)"]{background:rgba(255,255,255,.04)!important;}
+#lockScreen{background:radial-gradient(600px 400px at 50% 0%, rgba(34,211,238,.25), transparent 70%), #050814!important;}
+#pinInput{background:rgba(255,255,255,.08)!important;color:#fff!important;border:1px solid rgba(34,211,238,.4)!important;box-shadow:0 0 24px rgba(34,211,238,.2);}
+/* subtle entrance animation */
+.view.active .card{animation:rise .35s ease both;}
+.view.active .card:nth-child(2){animation-delay:.05s;}
+.view.active .card:nth-child(3){animation-delay:.1s;}
+@keyframes rise{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+
+</style>
 </head>
 <body>
 
