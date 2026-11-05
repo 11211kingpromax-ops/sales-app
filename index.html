@@ -265,6 +265,7 @@
       <label>לקוח</label>
       <input type="text" id="saleCustomer" list="customerList" placeholder="שם הלקוח">
       <datalist id="customerList"></datalist>
+      <button class="btn-secondary" style="margin-top:6px;font-size:12.5px" onclick="repeatLastOrder()">🔁 כמו בפעם הקודמת</button>
 
       <label>טלפון הלקוח <span style="color:#9AA69F">— אופציונלי, לשליחת הודעות וואטסאפ</span></label>
       <input type="tel" id="salePhone" placeholder="05XXXXXXXX" inputmode="tel">
@@ -286,6 +287,10 @@
 
       <label>מחיר קנייה ליחידה (₪) <span style="color:#9AA69F">— אופציונלי, לחישוב רווח</span></label>
       <input type="number" id="saleCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
+
+      <label>ספק <span style="color:#9AA69F">— אופציונלי, למעקב מחירים</span></label>
+      <input type="text" id="saleSupplier" list="supplierList" placeholder="שם הספק">
+      <datalist id="supplierList"></datalist>
 
       <label style="display:flex;align-items:center;gap:8px;margin-top:14px;cursor:pointer">
         <input type="checkbox" id="saleUnpaid" style="width:18px;height:18px;accent-color:var(--red)">
@@ -393,6 +398,23 @@
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px">מחושב לפי קצב המכירות של 4 השבועות האחרונים</div>
       <div id="stockDays"></div>
     </div>
+
+    <div class="card">
+      <h2>💲 היסטוריית מחירי ספקים</h2>
+      <div id="costHistoryBox"></div>
+    </div>
+
+    <div class="card">
+      <h2>🧮 השפעת שינוי מחיר והמלצה</h2>
+      <label>רווח רצוי ליחידה (₪)</label>
+      <input type="number" id="tupInput" inputmode="decimal" placeholder="לדוגמה: 3" onchange="saveTUP(this.value)">
+      <div id="priceImpactBox" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h2>🔔 התראות</h2>
+      <div id="alertsBox"></div>
+    </div>
     <div class="card">
       <h2>הוספת מלאי</h2>
       <label>מוצר</label>
@@ -408,6 +430,8 @@
           <input type="number" id="invCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
         </div>
       </div>
+      <label>ספק <span style="color:#9AA69F">— אופציונלי, למעקב מחירים</span></label>
+      <input type="text" id="invSupplier" list="supplierList" placeholder="שם הספק">
       <button class="btn-primary" onclick="restockProduct()">הוסף למלאי</button>
     </div>
 
@@ -435,6 +459,12 @@
     <div class="card">
       <h2>📊 רווח לפי חודש (6 חודשים)</h2>
       <div id="monthChart"></div>
+    </div>
+
+    <div class="card">
+      <h2>📉 האם לקוחות נשארו אחרי העלאת מחיר?</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">השוואה: 4 שבועות לפני העלאה מול 4 שבועות אחרי</div>
+      <div id="sensBox"></div>
     </div>
     <div class="card">
       <h2>📅 השוואה שבועית</h2>
@@ -608,8 +638,8 @@ function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
   if(name==='cal') renderCalendar();
   if(name==='reports') renderReport();
-  if(name==='inv'){ renderInventory(); renderStockDays(); }
-  if(name==='growth'){ renderGrowth(); renderTarget(); renderMonthChart(); }
+  if(name==='inv'){ renderInventory(); renderStockDays(); renderSupplierCards(); }
+  if(name==='growth'){ renderGrowth(); renderTarget(); renderMonthChart(); renderSensitivity(); }
 }
 
 /* ---------- Add sale ---------- */
@@ -676,6 +706,7 @@ function startEdit(id){
   document.getElementById('salePhone').value = s.phone || '';
   document.getElementById('saleUnpaid').checked = (s.paid === false);
   document.getElementById('saleCity').value = s.city || '';
+  document.getElementById('saleSupplier').value = s.supplier || '';
   updateTotalPreview();
 
   document.getElementById('editBanner').style.display = 'flex';
@@ -697,6 +728,7 @@ function cancelEdit(){
   document.getElementById('salePhone').value='';
   document.getElementById('saleUnpaid').checked = false;
   document.getElementById('saleCity').value = '';
+  document.getElementById('saleSupplier').value = '';
   document.getElementById('saleDate').value = todayISO();
   updateTotalPreview();
 }
@@ -712,6 +744,7 @@ function addSale(){
   const phone = document.getElementById('salePhone').value.trim();
   const paid = !document.getElementById('saleUnpaid').checked;
   const city = document.getElementById('saleCity').value.trim();
+  const supplier = document.getElementById('saleSupplier').value.trim();
 
   if(!product){ toast('נא להזין שם מוצר'); return; }
   if(!customer){ toast('נא להזין שם לקוח'); return; }
@@ -725,7 +758,7 @@ function addSale(){
       const old = sales[idx];
       adjustStock(old.product, old.qty);   // give back old stock
       adjustStock(product, -qty);          // take new stock
-      sales[idx] = {...old, date, product, customer, qty, price, cost, phone, paid, city};
+      sales[idx] = {...old, date, product, customer, qty, price, cost, phone, paid, city, supplier};
     }
     saveSales(sales);
     refreshDatalists();
@@ -738,7 +771,7 @@ function addSale(){
     return;
   }
 
-  sales.push({id:uid(), date, product, customer, qty, price, cost, phone, paid, city});
+  sales.push({id:uid(), date, product, customer, qty, price, cost, phone, paid, city, supplier});
   saveSales(sales);
   adjustStock(product, -qty);
   if(cost) { inventory[product] = inventory[product]||{stock:0,threshold:5,lastCost:0}; inventory[product].lastCost = cost; saveInventory(); }
@@ -752,6 +785,7 @@ function addSale(){
   document.getElementById('salePhone').value='';
   document.getElementById('saleUnpaid').checked = false;
   document.getElementById('saleCity').value = '';
+  document.getElementById('saleSupplier').value = '';
   updateTotalPreview();
   renderRegulars();
   renderLiveWeek();
@@ -1101,6 +1135,9 @@ function restockProduct(){
   adjustStock(product, qty);
   if(cost) inventory[product].lastCost = cost;
   saveInventory();
+  const supplier = document.getElementById('invSupplier').value.trim();
+  if(cost){ purchases.push({date: todayISO(), product, supplier, qty, cost}); savePurchases(); }
+  document.getElementById('invSupplier').value = '';
 
   document.getElementById('invProduct').value='';
   document.getElementById('invQty').value='';
@@ -1589,6 +1626,148 @@ function renderOldDebts(){
     }).join('');
 }
 
+/* ---------- Suppliers, price impact, recommendations, repeat order, price sensitivity ---------- */
+const PURCHASE_KEY = 'purchases_v1', TUP_KEY = 'target_unit_profit_v1';
+let purchases = (()=>{ try{ return JSON.parse(localStorage.getItem(PURCHASE_KEY)||'[]'); }catch(e){ return []; } })();
+function savePurchases(){ localStorage.setItem(PURCHASE_KEY, JSON.stringify(purchases)); }
+
+function addDays(iso, n){ const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n); return localISO(d); }
+function daysAgoISO(n){ return addDays(todayISO(), -n); }
+function allProducts(){ return [...new Set([...Object.keys(inventory), ...sales.map(s=>s.product)])]; }
+function unitsInRange(product, a, b){
+  return sales.filter(s=>s.product===product && s.date>=a && s.date<=b).reduce((x,s)=>x+s.qty,0);
+}
+function costHistory(product){
+  const list = purchases.filter(p=>p.product===product)
+    .map(p=>({date:p.date, cost:Number(p.cost), supplier:p.supplier||'לא צוין'}));
+  sales.filter(s=>s.product===product && s.cost>0)
+    .forEach(s=>list.push({date:s.date, cost:Number(s.cost), supplier:s.supplier||'לא צוין'}));
+  return list.sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
+}
+function refreshSupplierList(){
+  const names = [...new Set([...purchases.map(p=>p.supplier), ...sales.map(s=>s.supplier)].filter(Boolean))];
+  document.getElementById('supplierList').innerHTML = names.map(n=>`<option value="${n}">`).join('');
+}
+function saveTUP(v){
+  const n = parseFloat(v);
+  if(isNaN(n) || n<0){ toast('נא להזין סכום תקין'); return; }
+  localStorage.setItem(TUP_KEY, String(n));
+  renderSupplierCards();
+  toast('נשמר ✓');
+}
+
+function renderSupplierCards(){
+  refreshSupplierList();
+  const target = parseFloat(localStorage.getItem(TUP_KEY)||'0');
+  document.getElementById('tupInput').value = target || '';
+  const monthAgo = daysAgoISO(29), sixtyAgo = daysAgoISO(60);
+  const hist = [], impact = [], alerts = [];
+
+  allProducts().forEach(p=>{
+    const h = costHistory(p);
+    if(!h.length) return;
+    const first = h[0], last = h[h.length-1];
+    const diff = last.cost - first.cost;
+    const trend = diff===0 ? 'המחיר לא השתנה' : (diff>0 ? `עלה ב-${fmtMoney(diff)} ליחידה` : `ירד ב-${fmtMoney(-diff)} ליחידה`);
+    const rows = h.map((e,i)=>({...e, prev: i>0 ? h[i-1].cost : null})).slice(-6).reverse().map(e=>{
+      let tag = '';
+      if(e.prev!==null){
+        const d = e.cost - e.prev;
+        tag = d>0 ? `<span class="compare-diff down">+${fmtMoney(d)} ⬆️</span>`
+            : d<0 ? `<span class="compare-diff up">-${fmtMoney(-d)} ⬇️</span>`
+            : `<span class="compare-diff flat">ללא שינוי</span>`;
+      }
+      return `<div class="compare-item"><div><div class="report-name">${fmtMoney(e.cost)} · ${e.supplier}</div>
+        <div class="compare-nums">${fmtDateHe(e.date)}</div></div>${tag}</div>`;
+    }).join('');
+    hist.push(`<div style="margin-bottom:12px"><div style="font-weight:700;font-size:14px">${p}</div>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:4px">${trend}</div>${rows}</div>`);
+
+    const units30 = unitsInRange(p, monthAgo, todayISO());
+    const rev30 = sales.filter(s=>s.product===p && s.date>=monthAgo).reduce((a,s)=>a+s.qty*s.price,0);
+    const avgPrice = units30>0 ? rev30/units30 : 0;
+    const latestSale = sales.filter(s=>s.product===p).sort((a,b)=>a.date<b.date?1:-1)[0];
+    const curPrice = latestSale ? latestSale.price : 0;
+    const prevDiff = [...h].reverse().find(e=>e.cost!==last.cost);
+
+    let block = '';
+    if(prevDiff && units30>0){
+      const delta = last.cost - prevDiff.cost;
+      const before = units30*(avgPrice - prevDiff.cost);
+      const after  = units30*(avgPrice - last.cost);
+      const impactM = after - before;
+      const rec = delta<=0 ? 'המחיר ירד, וזה טוב לרווח שלך.'
+        : delta<0.5 ? 'העלייה קטנה. כדאי להשאיר את הספק, כי הטרחה של משא ומתן או החלפה עולה יותר מהחיסכון.'
+        : 'העלייה משמעותית. כדאי לבקש הנחה או לבדוק ספק אחר לפני שמקבלים את המחיר החדש.';
+      const latestBySup = {};
+      h.forEach(e=>{ latestBySup[e.supplier] = e; });
+      const cheaper = Object.values(latestBySup)
+        .filter(e=>e.supplier!==last.supplier && e.supplier!=='לא צוין' && e.cost<last.cost)
+        .sort((a,b)=>a.cost-b.cost)[0];
+      const cheapHtml = cheaper
+        ? `<div style="margin-top:8px;font-size:13px">ספק "<b>${cheaper.supplier}</b>" מציע ${fmtMoney(cheaper.cost)} ליחידה: חיסכון של <b>${fmtMoney(last.cost-cheaper.cost)}</b> ליחידה, ו-<b>${fmtMoney((last.cost-cheaper.cost)*units30)}</b> בחודש.</div>` : '';
+      block += `<div style="font-size:13px;margin-top:4px">${delta>=0?'עלייה':'ירידה'} של ${fmtMoney(Math.abs(delta))} ליחידה. בחודש האחרון: <b style="color:${impactM>=0?'var(--profit)':'var(--red)'}">${impactM>=0?'+':'-'}${fmtMoney(Math.abs(impactM))}</b> ברווח.</div>
+        <div style="font-size:13px;margin-top:6px">💡 ${rec}</div>${cheapHtml}`;
+    }
+    if(target>0 && last.cost>0){
+      block += `<div style="font-size:13px;margin-top:8px">כדי לשמור על ${fmtMoney(target)} רווח ליחידה, מחיר המכירה המומלץ: <b>${fmtMoney(last.cost+target)}</b> (היום ${fmtMoney(curPrice)})</div>`;
+    }
+    if(block) impact.push(`<div style="margin-bottom:14px"><div style="font-weight:700">${p}</div>${block}</div>`);
+
+    if(last.date < sixtyAgo) alerts.push(`⏳ <b>${p}</b>: מחיר הספק לא עודכן מעל 60 יום (אחרון: ${fmtDateHe(last.date)})`);
+  });
+
+  const lossSales = sales.filter(s=>s.cost>0 && s.price<s.cost && s.date>=monthAgo);
+  if(lossSales.length) alerts.unshift(`⚠️ ${lossSales.length} מכירות בחודש האחרון נמכרו מתחת לעלות (הפסד). לדוגמה: ${lossSales[0].customer} · ${lossSales[0].product}`);
+
+  document.getElementById('costHistoryBox').innerHTML = hist.length ? hist.join('')
+    : `<div class="empty-state">עדיין אין נתוני מחיר. הם יתמלאו כשתזין מחיר קנייה במלאי או במכירה.</div>`;
+  document.getElementById('priceImpactBox').innerHTML = impact.length ? impact.join('')
+    : `<div class="empty-state">אין עדיין שינוי מחיר ספק לחשב עליו. הזן רווח רצוי כדי לקבל מחיר מכירה מומלץ.</div>`;
+  document.getElementById('alertsBox').innerHTML = alerts.length
+    ? alerts.map(a=>`<div class="compare-item" style="display:block;font-size:13px">${a}</div>`).join('')
+    : `<div class="empty-state">אין התראות כרגע 👍</div>`;
+}
+
+function renderSensitivity(){
+  const today = todayISO();
+  const out = [];
+  allProducts().forEach(p=>{
+    const h = costHistory(p);
+    let idx = -1;
+    for(let i=1;i<h.length;i++) if(h[i].cost > h[i-1].cost) idx = i;
+    if(idx<0) return;
+    const cd = h[idx].date;
+    const beforeW = unitsInRange(p, addDays(cd,-28), addDays(cd,-1))/4;
+    if(addDays(cd,27) > today){
+      out.push(`<div style="margin-bottom:10px;font-size:13px"><b>${p}</b>: ההעלאה הייתה ב-${fmtDateHe(cd)}. עדיין מוקדם מדי להשוואה, צריך 4 שבועות אחרי ההעלאה. לפניה: ${beforeW.toFixed(1)} יח׳ בשבוע בממוצע.</div>`);
+      return;
+    }
+    const afterW = unitsInRange(p, cd, addDays(cd,27))/4;
+    const diff = afterW - beforeW;
+    out.push(`<div style="margin-bottom:12px"><b>${p}</b> · העלאה ב-${fmtDateHe(cd)}
+      <div style="font-size:13px;margin-top:4px">לפני: ${beforeW.toFixed(1)} יח׳ בשבוע · אחרי: ${afterW.toFixed(1)} יח׳ בשבוע</div>
+      <div style="margin-top:4px"><span class="compare-diff ${diff>=0?'up':'down'}">${diff>=0?'+':''}${diff.toFixed(1)} יח׳ בשבוע ${diff>=0?'⬆️':'⬇️'}</span></div></div>`);
+  });
+  document.getElementById('sensBox').innerHTML = out.length ? out.join('')
+    : `<div class="empty-state">עדיין לא זוהתה העלאת מחיר ספק</div>`;
+}
+
+function repeatLastOrder(){
+  const name = document.getElementById('saleCustomer').value.trim();
+  const last = sales.filter(s=>s.customer===name).sort((a,b)=>a.date<b.date?1:-1)[0];
+  if(!name || !last){ toast('לא נמצאה הזמנה קודמת ללקוח הזה'); return; }
+  document.getElementById('saleProduct').value = last.product;
+  document.getElementById('saleQty').value = last.qty;
+  document.getElementById('salePrice').value = last.price;
+  document.getElementById('saleCost').value = last.cost || '';
+  document.getElementById('salePhone').value = last.phone || '';
+  document.getElementById('saleCity').value = last.city || '';
+  document.getElementById('saleSupplier').value = last.supplier || '';
+  updateTotalPreview();
+  toast('מולאה ההזמנה האחרונה ✓');
+}
+
 /* init */
 renderCalendar();
 renderReport();
@@ -1600,6 +1779,8 @@ renderOldDebts();
 renderStockDays();
 renderTarget();
 renderMonthChart();
+renderSupplierCards();
+renderSensitivity();
 if(needsLock()) showLock();
 </script>
 </body>
