@@ -1882,14 +1882,19 @@ function delFixed(i){
 }
 function deliverFixed(i, scheduledDate){
   const f = fixedCustomers[i];
-  const date = todayISO();
+  // the sale is recorded on the DELIVERY date (the scheduled slot), not on the day you tap the button
+  const date = scheduledDate || todayISO();
+  if(date > todayISO()){
+    const [y,m,d] = date.split('-');
+    if(!confirm(`לסמן את המשלוח כנמסר ב-${d}/${m}/${y}? הרישום ייכנס לתאריך הזה.`)) return;
+  }
   const cost = (inventory[f.product] && inventory[f.product].lastCost) || 0;
   sales.push({id:uid(), date, product:f.product, customer:f.name, qty:f.qty, price:f.price, cost,
     phone:f.phone||'', paid:true, city:f.city||'', supplier:''});
   saveSales(sales);
   adjustStock(f.product, -f.qty);
-  f.lastFor = scheduledDate || date;   // the scheduled slot that was fulfilled
-  f.lastDelivered = date;
+  f.lastFor = date;                    // the scheduled slot that was fulfilled
+  f.lastDelivered = todayISO();        // when it was actually marked
   saveFixedList();
   refreshDatalists();
   renderCalendar(); renderReport(); renderRegulars(); renderLiveWeek(); renderFixed(); renderDeliveries();
