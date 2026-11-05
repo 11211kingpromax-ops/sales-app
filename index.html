@@ -591,6 +591,10 @@
   <button class="btn-primary" style="width:170px;margin-top:4px" onclick="tryUnlock()">פתח</button>
 </div>
 
+<div id="detailOverlay" onclick="if(event.target===this)closeDetail()" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center">
+  <div id="detailBody" style="background:var(--paper-2,#fff);width:100%;max-width:520px;max-height:85vh;overflow:auto;border-radius:20px 20px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));color:var(--ink,#16332C)"></div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -908,7 +912,7 @@ function renderDayPanel(){
     return `
     <div class="sale-row">
       <div>
-        <div class="sale-main"><b>${s.product}</b> · ${s.customer}</div>
+        <div class="sale-main" onclick="showSaleDetail('${s.id}')" style="cursor:pointer"><b>${s.product}</b> · <span style="text-decoration:underline dotted">${s.customer}</span>${s.city ? ` · <span style="color:var(--accent-dark)">📍 ${s.city}</span>` : ''}</div>
         <div class="sale-sub">${s.qty} יח׳ × ${fmtMoney(s.price)}${c ? ` (עלות ${fmtMoney(c)})` : ''}</div>
         ${c ? `<div class="report-profit">רווח: ${fmtMoney(lineProfit)}</div>` : ''}
         ${s.paid===false ? `<button class="debt-tag" onclick="markPaid('${s.id}')">💳 בהקפה — לחץ לסימון כשולם</button>` : ''}
@@ -1803,6 +1807,53 @@ function repeatLastOrder(){
   document.getElementById('saleSupplier').value = last.supplier || '';
   updateTotalPreview();
   toast('מולאה ההזמנה האחרונה ✓');
+}
+
+/* ---------- Sale & customer detail ---------- */
+function closeDetail(){ document.getElementById('detailOverlay').style.display='none'; }
+function detailRow(label, value){
+  return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+    <span style="color:var(--muted);font-size:13px">${label}</span><b style="font-size:14px;text-align:left">${value}</b></div>`;
+}
+function showSaleDetail(id){
+  const s = sales.find(x=>x.id===id);
+  if(!s) return;
+  const cust = sales.filter(x=>x.customer===s.customer);
+  const custCount = cust.length;
+  const custRevenue = cust.reduce((a,x)=>a+x.qty*x.price,0);
+  const custProfit = cust.reduce((a,x)=>a+x.qty*(x.price-(x.cost||0)),0);
+  const lastOrder = cust.map(x=>x.date).sort().pop();
+  const latestCity = cust.filter(x=>x.city).sort((a,b)=>a.date<b.date?1:-1)[0];
+  const city = s.city || (latestCity ? latestCity.city : '') || 'לא צוין';
+  const profit = s.qty*(s.price-(s.cost||0));
+  const unpaid = s.paid===false;
+  document.getElementById('detailBody').innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+      <div>
+        <div style="font-size:18px;font-weight:800">${s.customer}</div>
+        <div style="font-size:13px;color:var(--muted)">📍 ${city}${s.phone ? ` · ${s.phone}` : ''}</div>
+      </div>
+      <button class="btn-secondary" style="padding:4px 12px" onclick="closeDetail()">✕</button>
+    </div>
+    <div style="font-weight:700;margin:12px 0 4px;color:var(--accent-dark)">פירוט העסקה</div>
+    ${detailRow('תאריך', fmtDateHe(s.date))}
+    ${detailRow('מוצר', s.product)}
+    ${detailRow('כמות', s.qty+' יח׳')}
+    ${detailRow('מחיר ליחידה', fmtMoney(s.price))}
+    ${detailRow('סה״כ מכירה', fmtMoney(s.qty*s.price))}
+    ${s.cost ? detailRow('עלות ליחידה', fmtMoney(s.cost)) : ''}
+    ${s.cost ? detailRow('רווח', fmtMoney(profit)) : ''}
+    ${s.supplier ? detailRow('ספק', s.supplier) : ''}
+    ${detailRow('שולם', unpaid ? '<span style="color:var(--red)">בהקפה</span>' : 'כן')}
+    <div style="font-weight:700;margin:16px 0 4px;color:var(--accent-dark)">הלקוח בסך הכל</div>
+    ${detailRow('מספר הזמנות', custCount)}
+    ${detailRow('סה״כ הכנסה', fmtMoney(custRevenue))}
+    ${detailRow('סה״כ רווח', fmtMoney(custProfit))}
+    ${detailRow('הזמנה אחרונה', fmtDateHe(lastOrder))}
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn-primary" style="margin:0" onclick="closeDetail();startEdit('${s.id}')">✎ עריכת העסקה</button>
+    </div>`;
+  document.getElementById('detailOverlay').style.display = 'flex';
 }
 
 /* init */
