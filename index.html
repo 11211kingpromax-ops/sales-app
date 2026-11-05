@@ -331,7 +331,7 @@
   <!-- REPORTS VIEW -->
   <section class="view" id="view-reports">
     <div class="card">
-      <h2>🚚 משלוחים לשבוע הקרוב</h2>
+      <h2>📅 לקוחות קבועים לפי יום</h2>
       <div id="deliveryTotals" style="font-size:13px;margin-bottom:10px;color:var(--profit)"></div>
       <div id="deliveryList"></div>
     </div>
@@ -1827,16 +1827,6 @@ function saveFixedList(){ localStorage.setItem(FIXED_KEY, JSON.stringify(fixedCu
 // next delivery date for a fixed customer; if already delivered this cycle, move to next week
 // Returns the next scheduled delivery date that has NOT been fulfilled yet.
 // Looks back up to 6 days so a missed delivery still shows (as overdue).
-function nextDelivery(f){
-  const today = todayISO();
-  const fulfilledUpTo = f.lastFor || f.lastDelivered || '';
-  // new customer (never delivered): first occurrence from today on
-  // existing customer: look back 6 days so a missed slot shows as overdue
-  const from = fulfilledUpTo ? addDays(today, -6) : today;
-  let d = addDays(from, (f.day - new Date(from+'T00:00:00').getDay() + 7) % 7);
-  while(fulfilledUpTo && d <= fulfilledUpTo) d = addDays(d, 7);
-  return d;
-}
 function lastOrderOf(name){
   return sales.filter(s=>s.customer===name).sort((a,b)=>a.date<b.date?1:-1)[0];
 }
@@ -1880,26 +1870,6 @@ function delFixed(i){
   renderFixed();
   renderDeliveries();
 }
-function deliverFixed(i, scheduledDate){
-  const f = fixedCustomers[i];
-  // the sale is recorded on the DELIVERY date (the scheduled slot), not on the day you tap the button
-  const date = scheduledDate || todayISO();
-  if(date > todayISO()){
-    const [y,m,d] = date.split('-');
-    if(!confirm(`לסמן את המשלוח כנמסר ב-${d}/${m}/${y}? הרישום ייכנס לתאריך הזה.`)) return;
-  }
-  const cost = (inventory[f.product] && inventory[f.product].lastCost) || 0;
-  sales.push({id:uid(), date, product:f.product, customer:f.name, qty:f.qty, price:f.price, cost,
-    phone:f.phone||'', paid:true, city:f.city||'', supplier:''});
-  saveSales(sales);
-  adjustStock(f.product, -f.qty);
-  f.lastFor = date;                    // the scheduled slot that was fulfilled
-  f.lastDelivered = todayISO();        // when it was actually marked
-  saveFixedList();
-  refreshDatalists();
-  renderCalendar(); renderReport(); renderRegulars(); renderLiveWeek(); renderFixed(); renderDeliveries();
-  toast('המשלוח נרשם ✓');
-}
 function renderFixed(){
   const el = document.getElementById('fixedList');
   if(!fixedCustomers.length){ el.innerHTML = `<div class="empty-state">עדיין אין לקוחות קבועים</div>`; return; }
@@ -1912,34 +1882,33 @@ function renderFixed(){
       <button class="del-btn" onclick="delFixed(${i})">✕</button>
     </div>`).join('');
 }
+
 function renderDeliveries(){
-  const list = fixedCustomers.map((f,i)=>({f, i, date: nextDelivery(f)})).sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));
   const totalsEl = document.getElementById('deliveryTotals');
   const listEl = document.getElementById('deliveryList');
-  if(!list.length){
-    totalsEl.textContent = '';
-    listEl.innerHTML = `<div class="empty-state">הוסף לקוחות קבועים למטה כדי לראות כאן את המשלוחים</div>`;
+  totalsEl.textContent = '';
+  if(!fixedCustomers.length){
+    listEl.innerHTML = `<div class="empty-state">עדיין אין לקוחות קבועים. הוסף למטה.</div>`;
     return;
   }
-  const totals = {};
-  list.forEach(x=>{ totals[x.f.product] = (totals[x.f.product]||0) + x.f.qty; });
-  totalsEl.innerHTML = '<b>להכין השבוע:</b> ' + Object.entries(totals).map(([p,q])=>`${q} יח׳ ${p}`).join(' · ');
-  listEl.innerHTML = list.map(x=>{
-    const day = DAY_NAMES[new Date(x.date+'T00:00:00').getDay()];
-    const msg = `היי ${x.f.name}, ב${day} אביא לך ${x.f.qty} יח׳ ${x.f.product} 🙂`;
-    const wa = x.f.phone ? `<a class="wa-btn" href="${waLink(x.f.phone,msg)}" target="_blank" rel="noopener">💬 תזכורת</a>` : '';
-    const late = x.date < todayISO();
+  listEl.innerHTML = DAY_NAMES.map((name,d)=>{
+    const group = fixedCustomers.filter(f=>f.day===d);
+    if(!group.length) return '';
+    const total = group.reduce((a,f)=>a+f.qty,0);
+    const rows = group.map(f=>`
+      <div class="compare-item">
+        <div>
+          <div class="report-name">${f.name}${f.city ? ` · ${f.city}` : ''}</div>
+          <div class="compare-nums">${f.qty} יח׳ ${f.product}</div>
+        </div>
+      </div>`).join('');
     return `
-    <div class="compare-item">
-      <div>
-        <div class="report-name">${x.f.name}${x.f.city ? ` · ${x.f.city}` : ''}</div>
-        <div class="compare-nums">${late ? '<b style="color:var(--red)">⚠️ באיחור</b> · ' : ''}יום ${day} · ${fmtDateHe(x.date)} · ${x.f.qty} יח׳ ${x.f.product}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <button class="btn-primary" style="margin:0;padding:6px 12px;font-size:12px" onclick="deliverFixed(${x.i}, '${x.date}')">✓ נמסר</button>
-        ${wa}
-      </div>
-    </div>`;
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-weight:700;font-size:14px;color:var(--accent-dark);margin-bottom:4px">
+          <span>יום ${name}</span><span style="font-size:12.5px;color:var(--muted)">סה״כ ${total} יח׳</span>
+        </div>
+        ${rows}
+      </div>`;
   }).join('');
 }
 
