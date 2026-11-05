@@ -361,6 +361,8 @@
         <input type="text" id="fxProduct" list="productList" placeholder="שם המוצר">
         <label>מחיר ליחידה (₪) <span style="color:#9AA69F">— אופציונלי</span></label>
         <input type="number" id="fxPrice" min="0" step="0.1" inputmode="decimal" placeholder="0">
+        <label>עיר <span style="color:#9AA69F">— לסימון על המשלוח</span></label>
+        <input type="text" id="fxCity" list="cityList" placeholder="לדוגמה: תל אביב">
         <button class="btn-primary" onclick="saveFixed()">שמור כלקוח קבוע</button>
       </div>
     </div>
@@ -1823,11 +1825,16 @@ let fixedCustomers = (()=>{ try{ return JSON.parse(localStorage.getItem(FIXED_KE
 function saveFixedList(){ localStorage.setItem(FIXED_KEY, JSON.stringify(fixedCustomers)); }
 
 // next delivery date for a fixed customer; if already delivered this cycle, move to next week
+// Returns the next scheduled delivery date that has NOT been fulfilled yet.
+// Looks back up to 6 days so a missed delivery still shows (as overdue).
 function nextDelivery(f){
-  const t = new Date();
-  const base = new Date(t.getFullYear(), t.getMonth(), t.getDate());
-  let d = addDays(localISO(base), (f.day - base.getDay() + 7) % 7);
-  if(f.lastDelivered && f.lastDelivered >= addDays(d, -6)) d = addDays(d, 7);
+  const today = todayISO();
+  const fulfilledUpTo = f.lastFor || f.lastDelivered || '';
+  // new customer (never delivered): first occurrence from today on
+  // existing customer: look back 6 days so a missed slot shows as overdue
+  const from = fulfilledUpTo ? addDays(today, -6) : today;
+  let d = addDays(from, (f.day - new Date(from+'T00:00:00').getDay() + 7) % 7);
+  while(fulfilledUpTo && d <= fulfilledUpTo) d = addDays(d, 7);
   return d;
 }
 function lastOrderOf(name){
@@ -1840,6 +1847,7 @@ function prefillFixed(){
   document.getElementById('fxProduct').value = last.product;
   document.getElementById('fxQty').value = last.qty;
   document.getElementById('fxPrice').value = last.price;
+  document.getElementById('fxCity').value = last.city || '';
   toast('מולא מההזמנה האחרונה ✓');
 }
 function saveFixed(){
@@ -1854,12 +1862,13 @@ function saveFixed(){
   const last = lastOrderOf(name);
   if(isNaN(price) || price<=0) price = last ? last.price : 0;
   const phone = (last && last.phone) || '';
-  const city = (last && last.city) || '';
+  const typedCity = document.getElementById('fxCity').value.trim();
+  const city = typedCity || (last && last.city) || '';
   const existing = fixedCustomers.find(f=>f.name===name);
   const rec = {name, day, qty, product, price, phone, city, lastDelivered: existing ? existing.lastDelivered : null};
   if(existing) Object.assign(existing, rec); else fixedCustomers.push(rec);
   saveFixedList();
-  ['fxName','fxQty','fxProduct','fxPrice'].forEach(id=>document.getElementById(id).value='');
+  ['fxName','fxQty','fxProduct','fxPrice','fxCity'].forEach(id=>document.getElementById(id).value='');
   renderFixed();
   renderDeliveries();
   toast('נשמר כלקוח קבוע ✓');
@@ -1871,7 +1880,7 @@ function delFixed(i){
   renderFixed();
   renderDeliveries();
 }
-function deliverFixed(i){
+function deliverFixed(i, scheduledDate){
   const f = fixedCustomers[i];
   const date = todayISO();
   const cost = (inventory[f.product] && inventory[f.product].lastCost) || 0;
@@ -1879,6 +1888,7 @@ function deliverFixed(i){
     phone:f.phone||'', paid:true, city:f.city||'', supplier:''});
   saveSales(sales);
   adjustStock(f.product, -f.qty);
+  f.lastFor = scheduledDate || date;   // the scheduled slot that was fulfilled
   f.lastDelivered = date;
   saveFixedList();
   refreshDatalists();
@@ -1891,7 +1901,7 @@ function renderFixed(){
   el.innerHTML = fixedCustomers.map((f,i)=>`
     <div class="compare-item">
       <div>
-        <div class="report-name">${f.name}</div>
+        <div class="report-name">${f.name}${f.city ? ` · ${f.city}` : ''}</div>
         <div class="compare-nums">כל יום ${DAY_NAMES[f.day]} · ${f.qty} יח׳ ${f.product}${f.price?` · ${fmtMoney(f.price)}`:''}</div>
       </div>
       <button class="del-btn" onclick="delFixed(${i})">✕</button>
@@ -1913,14 +1923,15 @@ function renderDeliveries(){
     const day = DAY_NAMES[new Date(x.date+'T00:00:00').getDay()];
     const msg = `היי ${x.f.name}, ב${day} אביא לך ${x.f.qty} יח׳ ${x.f.product} 🙂`;
     const wa = x.f.phone ? `<a class="wa-btn" href="${waLink(x.f.phone,msg)}" target="_blank" rel="noopener">💬 תזכורת</a>` : '';
+    const late = x.date < todayISO();
     return `
     <div class="compare-item">
       <div>
-        <div class="report-name">${x.f.name}</div>
-        <div class="compare-nums">יום ${day} · ${fmtDateHe(x.date)} · ${x.f.qty} יח׳ ${x.f.product}</div>
+        <div class="report-name">${x.f.name}${x.f.city ? ` · ${x.f.city}` : ''}</div>
+        <div class="compare-nums">${late ? '<b style="color:var(--red)">⚠️ באיחור</b> · ' : ''}יום ${day} · ${fmtDateHe(x.date)} · ${x.f.qty} יח׳ ${x.f.product}</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <button class="btn-primary" style="margin:0;padding:6px 12px;font-size:12px" onclick="deliverFixed(${x.i})">✓ נמסר</button>
+        <button class="btn-primary" style="margin:0;padding:6px 12px;font-size:12px" onclick="deliverFixed(${x.i}, '${x.date}')">✓ נמסר</button>
         ${wa}
       </div>
     </div>`;
