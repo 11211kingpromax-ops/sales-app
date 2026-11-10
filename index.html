@@ -285,8 +285,9 @@
         </div>
       </div>
 
-      <label>מחיר קנייה ליחידה (₪) <span style="color:#9AA69F">— אופציונלי, לחישוב רווח</span></label>
+      <label>מחיר קנייה ליחידה (₪) <span style="color:#9AA69F">— מתמלא אוטומטית לפי המלאי</span></label>
       <input type="number" id="saleCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
+      <div id="costHint" style="font-size:11.5px;color:var(--muted);margin-top:4px"></div>
 
       <label>ספק <span style="color:#9AA69F">— אופציונלי, למעקב מחירים</span></label>
       <input type="text" id="saleSupplier" list="supplierList" placeholder="שם הספק">
@@ -374,6 +375,7 @@
       <input type="file" id="restoreFile" accept=".json,application/json" onchange="importBackup(this.files[0])">
       <button class="btn-secondary" style="width:100%;margin-top:10px" onclick="exportCSV()">📊 ייצוא כל המכירות לאקסל (CSV)</button>
 
+      <button class="btn-secondary" style="width:100%;margin-top:10px" onclick="recalcAllCosts()">🔄 חשב מחדש עלויות מכירות לפי FIFO</button>
       <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
         <div style="font-weight:700;font-size:14px;margin-bottom:6px">🔐 קוד נעילה</div>
         <div id="pinStatus" style="font-size:12.5px;color:var(--muted);margin-bottom:8px"></div>
@@ -437,6 +439,29 @@
     </div>
 
     <div class="card">
+      <h2>🧭 כיול מלאי לפי עלות (FIFO)</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">הזן פעם אחת מה יש במלאי היום לפי מחיר קנייה. מהרגע הזה המכירות יחושבו לפי הסדר: קודם היחידות הישנות.</div>
+      <label>מוצר</label>
+      <input type="text" id="calProduct" list="productList" placeholder="שם המוצר">
+      <div class="row2">
+        <div><label>יחידות ישנות</label><input type="number" id="calOldQty" min="0" inputmode="numeric" placeholder="0"></div>
+        <div><label>מחיר ישן (₪)</label><input type="number" id="calOldCost" min="0" step="0.1" inputmode="decimal" placeholder="0"></div>
+      </div>
+      <div class="row2">
+        <div><label>יחידות חדשות</label><input type="number" id="calNewQty" min="0" inputmode="numeric" placeholder="0"></div>
+        <div><label>מחיר חדש (₪)</label><input type="number" id="calNewCost" min="0" step="0.1" inputmode="decimal" placeholder="0"></div>
+      </div>
+      <button class="btn-primary" onclick="saveCalibration()">שמור כיול</button>
+      <div id="calSummary" style="font-size:12.5px;color:var(--muted);margin-top:10px"></div>
+    </div>
+
+    <div class="card" id="unsoldCard">
+      <h2>💼 מלאי שעוד לא נמכר</h2>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">מה שנשאר במלאי לפי מחיר הקנייה, והרווח הצפוי אם תמכור לפי המחיר האחרון</div>
+      <div id="unsoldBox"></div>
+    </div>
+
+    <div class="card">
       <h2>💲 היסטוריית מחירי ספקים</h2>
       <div id="costHistoryBox"></div>
     </div>
@@ -467,6 +492,8 @@
           <input type="number" id="invCost" min="0" step="0.1" placeholder="0" inputmode="decimal">
         </div>
       </div>
+      <label>תאריך קנייה</label>
+      <input type="date" id="invDate">
       <label>ספק <span style="color:#9AA69F">— אופציונלי, למעקב מחירים</span></label>
       <input type="text" id="invSupplier" list="supplierList" placeholder="שם הספק">
       <button class="btn-primary" onclick="restockProduct()">הוסף למלאי</button>
@@ -679,7 +706,7 @@ function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
   if(name==='cal') renderCalendar();
   if(name==='reports'){ renderReport(); renderDeliveries(); renderFixed(); }
-  if(name==='inv'){ renderInventory(); renderStockDays(); renderSupplierCards(); }
+  if(name==='inv'){ renderInventory(); renderStockDays(); renderSupplierCards(); renderCalSummary(); renderUnsold(); }
   if(name==='growth'){ renderGrowth(); renderTarget(); renderMonthChart(); renderSensitivity(); }
 }
 
@@ -710,14 +737,12 @@ document.getElementById('saleCustomer').addEventListener('change', function(){
     if(known) phoneField.value = known;
   }
 });
-document.getElementById('saleProduct').addEventListener('change', function(){
-  if(editingSaleId) return;
-  const costField = document.getElementById('saleCost');
-  const inv = inventory[this.value.trim()];
-  if(!costField.value && inv && inv.lastCost){
-    costField.value = inv.lastCost;
-    updateTotalPreview();
-  }
+['change','input'].forEach(ev=>{
+  document.getElementById('saleProduct').addEventListener(ev, applyAutoCost);
+});
+['input','change'].forEach(ev=>{
+  document.getElementById('saleQty').addEventListener(ev, applyAutoCost);
+  document.getElementById('saleDate').addEventListener(ev, applyAutoCost);
 });
 
 function updateTotalPreview(){
@@ -799,7 +824,10 @@ function addSale(){
       const old = sales[idx];
       adjustStock(old.product, old.qty);   // give back old stock
       adjustStock(product, -qty);          // take new stock
-      sales[idx] = {...old, date, product, customer, qty, price, cost, phone, paid, city, supplier};
+      const changedCore = old.product!==product || old.qty!==qty || old.date!==date;
+      const ap = changedCore ? autoParts(product, qty, date, editingSaleId) : null;
+      sales[idx] = {...old, date, product, customer, qty, price, phone, paid, city, supplier,
+        cost: ap ? ap.cost : cost, parts: ap ? ap.parts : old.parts};
     }
     saveSales(sales);
     refreshDatalists();
@@ -812,7 +840,9 @@ function addSale(){
     return;
   }
 
-  sales.push({id:uid(), date, product, customer, qty, price, cost, phone, paid, city, supplier});
+  const ap = autoParts(product, qty, date, null);
+  sales.push({id:uid(), date, product, customer, qty, price, cost: ap ? ap.cost : cost, phone, paid, city, supplier,
+    parts: ap ? ap.parts : undefined});
   saveSales(sales);
   adjustStock(product, -qty);
   if(cost) { inventory[product] = inventory[product]||{stock:0,threshold:5,lastCost:0}; inventory[product].lastCost = cost; saveInventory(); }
@@ -915,6 +945,7 @@ function renderDayPanel(){
         <div class="sale-main" onclick="showSaleDetail('${s.id}')" style="cursor:pointer"><b>${s.product}</b> · <span style="text-decoration:underline dotted">${s.customer}</span>${s.city ? ` · <span style="color:var(--accent-dark)">📍 ${s.city}</span>` : ''}</div>
         <div class="sale-sub">${s.qty} יח׳ × ${fmtMoney(s.price)}${c ? ` (עלות ${fmtMoney(c)})` : ''}</div>
         ${c ? `<div class="report-profit">רווח: ${fmtMoney(lineProfit)}</div>` : ''}
+        ${s.parts && s.parts.length>1 ? partsHtml(s.parts) : ''}
         ${s.paid===false ? `<button class="debt-tag" onclick="markPaid('${s.id}')">💳 בהקפה — לחץ לסימון כשולם</button>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:2px">
@@ -1177,7 +1208,9 @@ function restockProduct(){
   if(cost) inventory[product].lastCost = cost;
   saveInventory();
   const supplier = document.getElementById('invSupplier').value.trim();
-  if(cost){ purchases.push({date: todayISO(), product, supplier, qty, cost}); savePurchases(); }
+  const purchaseDate = document.getElementById('invDate').value || todayISO();
+  if(cost){ purchases.push({date: purchaseDate, product, supplier, qty, cost}); savePurchases(); }
+  document.getElementById('invDate').value = todayISO();
   document.getElementById('invSupplier').value = '';
 
   document.getElementById('invProduct').value='';
@@ -1843,6 +1876,7 @@ function showSaleDetail(id){
     ${detailRow('סה״כ מכירה', fmtMoney(s.qty*s.price))}
     ${s.cost ? detailRow('עלות ליחידה', fmtMoney(s.cost)) : ''}
     ${s.cost ? detailRow('רווח', fmtMoney(profit)) : ''}
+    ${s.parts && s.parts.length>1 ? detailRow('פיצול לפי קניות', s.parts.map(p=>`${p.qty} × ${fmtMoney(p.cost)}`).join(' + ')) : ''}
     ${s.supplier ? detailRow('ספק', s.supplier) : ''}
     ${detailRow('שולם', unpaid ? '<span style="color:var(--red)">בהקפה</span>' : 'כן')}
     <div style="font-weight:700;margin:16px 0 4px;color:var(--accent-dark)">הלקוח בסך הכל</div>
@@ -1854,6 +1888,171 @@ function showSaleDetail(id){
       <button class="btn-primary" style="margin:0" onclick="closeDetail();startEdit('${s.id}')">✎ עריכת העסקה</button>
     </div>`;
   document.getElementById('detailOverlay').style.display = 'flex';
+}
+
+/* ---------- FIFO cost (automatic, oldest stock sells first) ---------- */
+function normName(s){ return String(s||'').trim().replace(/\s+/g,' ').toLowerCase(); }
+let fifoBaseData = (()=>{ try{ return JSON.parse(localStorage.getItem('fifo_base_v1')||'{}'); }catch(e){ return {}; } })();
+function isPreBase(s, product){
+  const b = fifoBaseData[normName(product)];
+  return !!b && b.saleIds.includes(s.id);
+}
+function lotsFor(product){
+  const b = fifoBaseData[normName(product)];
+  const base = b ? b.lots.map((l,i)=>({date:'0000-00-00', cost:Number(l.cost), qty:Number(l.qty), idx:-1-i})) : [];
+  const from = b ? b.purchaseCount : 0;
+  const post = purchases
+    .map((p,idx)=>({date:p.date, cost:Number(p.cost), qty:Number(p.qty), idx}))
+    .filter(l=>l.idx>=from && l.qty>0 && normName(purchases[l.idx].product)===normName(product))
+    .sort((a,b)=> a.date!==b.date ? (a.date<b.date?-1:1) : a.idx-b.idx);
+  return base.concat(post);   // calibrated (oldest) lots first, then later purchases
+}
+function saveCalibration(){
+  const product = document.getElementById('calProduct').value.trim();
+  const oq = parseFloat(document.getElementById('calOldQty').value)||0;
+  const oc = parseFloat(document.getElementById('calOldCost').value);
+  const nq = parseFloat(document.getElementById('calNewQty').value)||0;
+  const nc = parseFloat(document.getElementById('calNewCost').value);
+  if(!product){ toast('נא להזין מוצר'); return; }
+  const lots = [];
+  if(oq>0){ if(isNaN(oc)){ toast('נא להזין מחיר ישן'); return; } lots.push({qty:oq, cost:oc}); }
+  if(nq>0){ if(isNaN(nc)){ toast('נא להזין מחיר חדש'); return; } lots.push({qty:nq, cost:nc}); }
+  if(!lots.length){ toast('נא להזין כמות'); return; }
+  const total = lots.reduce((a,l)=>a+l.qty,0);
+  fifoBaseData[normName(product)] = {
+    lots,
+    saleIds: sales.map(s=>s.id),          // sales already reflected in the counted stock
+    purchaseCount: purchases.length       // purchases already reflected in the counted stock
+  };
+  localStorage.setItem('fifo_base_v1', JSON.stringify(fifoBaseData));
+  if(!inventory[product]) inventory[product] = {stock:0, threshold:5, lastCost:0};
+  inventory[product].stock = total;
+  inventory[product].lastCost = lots[lots.length-1].cost;
+  saveInventory();
+  ['calProduct','calOldQty','calOldCost','calNewQty','calNewCost'].forEach(id=>document.getElementById(id).value='');
+  renderInventory(); renderCalSummary(); renderSupplierCards(); renderUnsold();
+  toast('הכיול נשמר ✓');
+}
+function renderCalSummary(){
+  const el = document.getElementById('calSummary');
+  if(!el) return;
+  const rows = Object.entries(fifoBaseData).map(([p,b])=>
+    `<div>• <b>${p}</b>: ` + b.lots.map(l=>`${l.qty} יח׳ ב-${fmtMoney(l.cost)}`).join(' + ') + ' (הישן קודם)</div>').join('');
+  el.innerHTML = rows || 'עדיין לא בוצע כיול.';
+}
+// take `qty` units from lots that were bought on or before `date`; returns total cost and units taken
+function consumeFIFO(lots, qty, date){
+  let need=qty, total=0, used=0;
+  const parts=[];
+  for(const l of lots){
+    if(need<=0) break;
+    if(l.date>date || l.qty<=0) continue;
+    const take=Math.min(l.qty, need);
+    total+=take*l.cost; used+=take; l.qty-=take; need-=take;
+    parts.push({qty:take, cost:l.cost});
+  }
+  return {total, used, parts};
+}
+// full allocation for a sale: average cost + the split by purchase batch (null if not enough purchases)
+function autoParts(product, qty, date, excludeId){
+  const lots = lotsFor(product);
+  const prior = sales.map((s,i)=>({s,i}))
+    .filter(x=>normName(x.s.product)===normName(product) && x.s.id!==excludeId && x.s.date<=date && !isPreBase(x.s, product))
+    .sort((a,b)=> a.s.date!==b.s.date ? (a.s.date<b.s.date?-1:1) : a.i-b.i)
+    .map(x=>x.s);
+  prior.forEach(s=>consumeFIFO(lots, s.qty, s.date));
+  const r = consumeFIFO(lots, qty, date);
+  if(r.used < qty) return null;
+  return {cost: Math.round(r.total/r.used*100)/100, parts: r.parts};
+}
+function partsHtml(parts){
+  return parts.map(p=>`<div class="compare-nums">${p.qty} יח׳ × ${fmtMoney(p.cost)}</div>`).join('');
+}
+function autoCost(product, qty, date, excludeId){
+  const lots = lotsFor(product);
+  const prior = sales.map((s,i)=>({s,i}))
+    .filter(x=>normName(x.s.product)===normName(product) && x.s.id!==excludeId && x.s.date<=date && !isPreBase(x.s, product))
+    .sort((a,b)=> a.s.date!==b.s.date ? (a.s.date<b.s.date?-1:1) : a.i-b.i)
+    .map(x=>x.s);
+  prior.forEach(s=>consumeFIFO(lots, s.qty, s.date));
+  const r = consumeFIFO(lots, qty, date);
+  if(r.used < qty) return null;               // not enough purchases recorded
+  return Math.round(r.total/r.used*100)/100;
+}
+let pendingParts = null;
+function applyAutoCost(){
+  if(editingSaleId) return;                   // editing keeps the stored cost
+  const costField = document.getElementById('saleCost');
+  const hint = document.getElementById('costHint');
+  const p = document.getElementById('saleProduct').value.trim();
+  const q = parseFloat(document.getElementById('saleQty').value);
+  const d = document.getElementById('saleDate').value || todayISO();
+  if(!p || !q || q<=0){ hint.textContent=''; return; }
+  const ap = autoParts(p, q, d, null);
+  if(ap){
+    costField.value = ap.cost;
+    pendingParts = ap.parts;
+    hint.innerHTML = `עלות אוטומטית (FIFO), ממוצע ${fmtMoney(ap.cost)} ליחידה:` + partsHtml(ap.parts);
+  } else {
+    pendingParts = null;
+    const lots = lotsFor(p);
+    const fallback = lots.length ? lots[lots.length-1].cost : ((inventory[p] && inventory[p].lastCost) || 0);
+    costField.value = fallback || '';
+    hint.innerHTML = lots.length
+      ? 'אין מספיק קניות רשומות לכמות הזו. המחיר מולא לפי הקנייה האחרונה. הוסף את הקניות החסרות במלאי (עם התאריך שלהן).'
+      : `לא נמצאו קניות רשומות למוצר "${p}". הוסף אותו במלאי עם תאריך הקנייה ומחיר, והמחיר יתמלא אוטומטית.`;
+  }
+  updateTotalPreview();
+}
+// recompute stored costs of ALL sales in order (use after entering old purchases)
+function recalcAllCosts(){
+  if(!confirm('לחשב מחדש את עלות כל המכירות לפי סדר הקניות (FIFO)? הרווח ההיסטורי ישתנה בהתאם.')) return;
+  let changed=0, skipped=0;
+  [...new Set(sales.map(s=>s.product))].forEach(p=>{
+    const lots = lotsFor(p);
+    sales.map((s,i)=>({s,i})).filter(x=>normName(x.s.product)===normName(p) && !isPreBase(x.s, p))
+      .sort((a,b)=> a.s.date!==b.s.date ? (a.s.date<b.s.date?-1:1) : a.i-b.i)
+      .forEach(({s})=>{
+        const r = consumeFIFO(lots, s.qty, s.date);
+        if(r.used < s.qty){ skipped++; return; }
+        const c = Math.round(r.total/r.used*100)/100;
+        if(s.cost!==c){ s.cost=c; changed++; }
+        s.parts = r.parts;
+      });
+  });
+  saveSales(sales);
+  renderCalendar(); renderReport(); renderGrowth && renderGrowth(); renderSupplierCards(); renderLiveWeek();
+  toast(`עודכנו ${changed} עלויות${skipped ? ` · ${skipped} לא חושבו (חסרה קנייה רשומה)` : ''}`);
+}
+
+/* ---------- Unsold stock (what is left, at what cost, expected profit) ---------- */
+function unsoldRemaining(product){
+  const lots = lotsFor(product);
+  sales.map((s,i)=>({s,i}))
+    .filter(x=>normName(x.s.product)===normName(product) && !isPreBase(x.s, product))
+    .sort((a,b)=> a.s.date!==b.s.date ? (a.s.date<b.s.date?-1:1) : a.i-b.i)
+    .forEach(({s})=>consumeFIFO(lots, s.qty, '9999-12-31'));
+  return lots.filter(l=>l.qty>0);
+}
+function renderUnsold(){
+  const box = document.getElementById('unsoldBox');
+  if(!box) return;
+  const rows = allProducts().map(p=>{
+    const rem = unsoldRemaining(p);
+    const units = rem.reduce((a,l)=>a+l.qty,0);
+    if(!units) return '';
+    const value = rem.reduce((a,l)=>a+l.qty*l.cost,0);
+    const latest = sales.filter(s=>normName(s.product)===normName(p)).sort((a,b)=>a.date<b.date?1:-1)[0];
+    const price = latest ? latest.price : 0;
+    const expected = rem.reduce((a,l)=>a+l.qty*(price-l.cost),0);
+    return `<div style="margin-bottom:14px">
+      <div style="font-weight:700;font-size:14px">${p}</div>
+      <div style="font-size:13px;margin-top:4px">${units} יח׳ · שווי במחיר קנייה <b>${fmtMoney(value)}</b></div>
+      ${rem.map(l=>`<div class="compare-nums">${l.qty} יח׳ × ${fmtMoney(l.cost)}</div>`).join('')}
+      <div style="font-size:13px;margin-top:6px">רווח צפוי אם תמכור לפי ${fmtMoney(price)}: <b style="color:${expected>=0?'var(--profit)':'var(--red)'}">${fmtMoney(expected)}</b></div>
+    </div>`;
+  }).join('');
+  box.innerHTML = rows || '<div class="empty-state">אין מלאי שלא נמכר כרגע</div>';
 }
 
 /* init */
@@ -1963,6 +2162,9 @@ function renderDeliveries(){
   }).join('');
 }
 
+document.getElementById('invDate').value = todayISO();
+renderCalSummary();
+renderUnsold();
 if(needsLock()) showLock();
 </script>
 </body>
